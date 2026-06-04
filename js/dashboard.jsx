@@ -7,20 +7,47 @@
   const { useState } = React;
 
   // ---------- LEFT: category menu ----------
+  function NewCategoryModal({ onClose, onCreate }){
+    const [name,setName] = useState('');
+    function add(){ if(!name.trim()) return; onCreate(name.trim()); }
+    return e('div',{ className:'modal-veil', onClick:onClose },
+      e('div',{ className:'panel modal', onClick:(ev)=>ev.stopPropagation() },
+        e('div',{ className:'panel-title' }, e('span',{className:'dot'}), 'New Problem Set'),
+        e('div',{ className:'field' }, e('label',{},'Set name'),
+          e('input',{ value:name, autoFocus:true, placeholder:'e.g. Amazon Tagged',
+            onChange:(ev)=>setName(ev.target.value), onKeyDown:(ev)=>ev.key==='Enter'&&add() })),
+        e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', lineHeight:1.5, marginBottom:14 } },
+          'Create your own category \u2014 then add problems to it with the ', e('b',{},'+ Add'), ' button. It tracks progress and feeds your stats just like the built-in sets.'),
+        e('div',{ style:{ display:'flex', gap:10, justifyContent:'flex-end' } },
+          e('button',{ className:'btn', onClick:onClose }, 'Cancel'),
+          e('button',{ className:'btn green', disabled:!name.trim(), onClick:add }, 'Create'))
+      )
+    );
+  }
+
   function CategoryMenu({ sel, setSel }){
+    window.useStore();                       // re-render when categories/problems change
     const stats = window.Derived.categoryStats();
+    const [modal, setModal] = useState(false);
     return e('div',{ className:'panel', style:colStyle },
-      e('div',{ className:'panel-title' }, e('span',{className:'dot'}), 'Problem Sets'),
+      modal ? e(NewCategoryModal,{ onClose:()=>setModal(false),
+        onCreate:(name)=>{ const id=window.Store.addCategory(name); setModal(false); setSel(id); } }) : null,
+      e('div',{ style:{ display:'flex', alignItems:'center', marginBottom:10 } },
+        e('div',{ className:'panel-title', style:{ margin:0, flex:1 } }, e('span',{className:'dot'}), 'Problem Sets'),
+        e('button',{ className:'iconbtn', onClick:()=>setModal(true) }, '+ New')),
       e('div',{ style:scrollBody },
         stats.map(c=> e('button',{ key:c.id, className:'cat-item'+(sel===c.id?' active':''),
             onClick:()=>setSel(c.id), style:{ width:'100%', textAlign:'left', background: sel===c.id?undefined:'transparent', border:'2px solid '+(sel===c.id?'var(--sage-deep)':'transparent') } },
           e('div',{ style:{ flex:1, minWidth:0 } },
             e('div',{ style:{ display:'flex', alignItems:'center', gap:6 } },
               e('span',{ className:'cname', style:{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } }, c.name),
-              e('span',{ className:'ccount' }, c.solved+'/'+c.count)),
+              c.custom ? e('span',{ className:'type-tag', style:{ background:'var(--lav)', color:'#fff', fontSize:7, padding:'1px 4px' } }, 'MINE') : null,
+              e('span',{ className:'ccount', style:{ marginLeft:'auto' } }, c.solved+'/'+c.count)),
             e('div',{ className:'minibar', style:{ marginTop:5 } },
               e('i',{ style:{ width:(c.pct*100)+'%' } }))
-          )
+          ),
+          c.custom ? e('span',{ title:'Delete set', onClick:(ev)=>{ ev.stopPropagation(); if(sel===c.id) setSel('arrays'); window.Store.removeCategory(c.id); },
+            style:{ fontFamily:"'Silkscreen'", fontSize:12, color:'var(--ink-faint)', cursor:'pointer', padding:'0 2px' } }, '\u00d7') : null
         ))
       )
     );
@@ -62,7 +89,7 @@
   // ---------- modals ----------
   function AddProblemModal({ catId, onClose }){
     const [name,setName] = useState(''); const [diff,setDiff] = useState('Medium');
-    const cat = window.DATA.CATEGORIES.find(c=>c.id===catId);
+    const cat = window.Store.categories().find(c=>c.id===catId);
     function add(){ if(!name.trim()) return; window.Store.addProblem(catId, name.trim(), diff); onClose(); }
     return e('div',{ className:'modal-veil', onClick:onClose },
       e('div',{ className:'panel modal', onClick:(ev)=>ev.stopPropagation() },
@@ -160,7 +187,12 @@
           e('button',{ className:'coin'+(claimed?' claimed':''), title: claimed?'Claimed':'Claim reward',
             onClick:()=> window.Store.claimSolve(p.id, amount) }, claimed?'\u2666':'?'),
           e('span',{ className:'earn' }, claimed ? 'Shards claimed \u00b7 +1 EXP to team' : `Claim +${amount} Shards`),
-          e('span',{ className:'mono', style:{ fontSize:15, color:'#9a8fb5' } }, synced && st.syncedPaths[p.id] ? st.syncedPaths[p.id].split('/').pop() : 'solution.py')
+          e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:9, color:'var(--shard-lite)' } }, 'Completed'),
+          e('input',{ type:'date', value: window.Store.solveDate(p) || '', max: window.Store.TODAY,
+            onChange:(ev)=> window.Store.setSolveDate(p.id, ev.target.value),
+            title:'Date this problem was completed \u2014 feeds your Training Log',
+            style:{ fontFamily:"'Silkscreen'", fontSize:11, padding:'4px 6px', borderRadius:6, border:'2px solid var(--lav-deep)',
+              background:'#efeaf6', color:'#3a3147', colorScheme:'light' } })
         )
       ) : null
     );
@@ -168,7 +200,7 @@
 
   function ProblemList({ catId }){
     const st = window.useStore();
-    const cat = window.DATA.CATEGORIES.find(c=>c.id===catId);
+    const cat = window.Store.categories().find(c=>c.id===catId);
     const probs = window.Store.problemsFor(catId);
     const solvedN = probs.filter(window.Store.isSolved).length;
     const [modal, setModal] = useState(null);
@@ -193,22 +225,39 @@
 
   // ---------- RIGHT: trainer card ----------
   function CommitGrid(){
-    const grid = window.DATA.STREAK;
+    const { grid } = window.Derived.trainingGrid(18);
+    const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const lvl = (c)=> c<=0?0 : c===1?1 : c===2?2 : c===3?3 : 4;
+    // month label above a column when its first in-range day starts a new month
+    let lastMon = -1;
+    const monthRow = grid.map((wk,wi)=>{
+      const cell = wk.find(c=>c);
+      let label = '';
+      if(cell){ const mo = +cell.date.slice(5,7)-1; if(mo!==lastMon){ label = MON[mo]; lastMon = mo; } }
+      return e('div',{ key:wi, style:{ width:13, fontFamily:"'Silkscreen'", fontSize:7, color:'var(--ink-faint)', textAlign:'left' } }, label);
+    });
+    const fmt = (d)=>{ const mo=+d.slice(5,7)-1, day=+d.slice(8,10); return MON[mo]+' '+day; };
     return e('div',{},
+      e('div',{ style:{ display:'flex', gap:2, marginBottom:2, paddingLeft:0 } }, monthRow),
       e('div',{ className:'commit' },
         grid.map((wk,wi)=> e('div',{ className:'wk', key:wi },
-          wk.map((v,di)=> e('div',{ key:di, className:'cl l'+v }))))
+          wk.map((c,di)=> c
+            ? e('div',{ key:di, className:'cl l'+lvl(c.count),
+                title: fmt(c.date)+(c.count? ('  \u00b7  '+c.count+' solved') : '  \u00b7  no solves') })
+            : e('div',{ key:di, className:'cl', style:{ opacity:0 } }))))
       ),
       e('div',{ style:{ display:'flex', alignItems:'center', gap:6, marginTop:8, fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)' } },
         'less',
         [0,1,2,3,4].map(l=> e('div',{ key:l, className:'cl l'+l })),
-        'more')
+        'more',
+        e('span',{ style:{ marginLeft:'auto' } }, 'hover a day'))
     );
   }
 
   function TrainerCard(){
     const st = window.useStore();
     const D = window.Derived;
+    const [detail, setDetail] = useState(null);
     const power = D.teamPower();
     const mult = D.teamMultiplier();
     const streak = D.streakInfo();
@@ -227,11 +276,13 @@
     );
 
     return e('div',{ className:'panel', style:{ ...colStyle, gap:0 } },
+      detail ? e(window.MonDetailModal,{ iid:detail, onClose:()=>setDetail(null) }) : null,
       e('div',{ style:scrollBody },
         // header
         e('div',{ style:{ display:'flex', gap:12, alignItems:'center', marginBottom:12 } },
-          e('div',{ style:{ width:60, height:60, borderRadius:10, background:'var(--lav)', border:'3px solid var(--lav-deep)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'inset 0 2px 0 rgba(255,255,255,.3)' } },
-            e(Pokeball,{ size:34 })),
+          e('div',{ style:{ width:78, height:78, borderRadius:12, background:'var(--lav-lite)', border:'3px solid var(--lav-deep)', overflow:'hidden', flex:'none', boxShadow:'inset 0 2px 0 rgba(255,255,255,.4), 0 3px 0 rgba(124,90,61,.18)' } },
+            e('img',{ src:'assets/PokeAvatar.png', alt:'Trainer avatar', draggable:false,
+              style:{ width:'100%', height:'100%', objectFit:'cover', imageRendering:'pixelated', display:'block' } })),
           e('div',{ style:{ flex:1 } },
             e('div',{ className:'pixel-font', style:{ fontSize:15, color:'var(--wood-dark)' } }, st && window.DATA.TRAINER.name),
             e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', marginTop:3 } }, window.DATA.TRAINER.title),
@@ -256,12 +307,19 @@
           e('div',{ className:'stile', style:{ flex:1 } }, e('div',{ className:'lab' }, 'Solved'), e('div',{ className:'val', style:{fontSize:14} }, counts.total),
             e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)', marginTop:2 } }, `${counts.easy}/${counts.med}/${counts.hard}`))),
         // team strip
-        e('div',{ className:'panel-title', style:{ marginTop:14 } }, e('span',{className:'dot'}), 'Active Team'),
+        e('div',{ className:'panel-title', style:{ marginTop:14, alignItems:'center' } }, e('span',{className:'dot'}), 'Active Team',
+          e('span',{ style:{ marginLeft:'auto', fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)', textTransform:'none', letterSpacing:0 } }, 'tap for details →')),
         e('div',{ style:{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:7, marginBottom:6 } },
           team.map(m=>{
             const sp = window.PixelMon.byId(m.sp);
             const need = window.Derived.expToNext(m.level);
-            return e('div',{ key:m.iid, className:'chip-card', style:{ padding:'7px 4px 6px', textAlign:'center' } },
+            const evoReady = (sp.evo||sp.id==='eevee') && (m.copies||0) >= window.PixelMon.EVO_COPIES;
+            const megaCap = window.PixelMon.canTransform(sp);
+            return e('button',{ key:m.iid, className:'chip-card team-chip', onClick:()=>setDetail(m.iid),
+                style:{ padding:'7px 4px 6px', textAlign:'center', cursor:'pointer', position:'relative', font:'inherit', width:'100%' } },
+              evoReady ? e('span',{ title:'Ready to evolve', style:{ position:'absolute', top:-6, right:-5, width:16, height:16, borderRadius:'50%', background:'var(--sage-deep)', color:'#fff', fontFamily:"'Silkscreen'", fontSize:9, display:'flex', alignItems:'center', justifyContent:'center', border:'2px solid #fff', boxShadow:'0 0 6px var(--sage)' } }, '↑')
+                : (megaCap && !m.form) ? e('span',{ title:'Can Mega-Evolve', style:{ position:'absolute', top:-5, right:-4, width:13, height:13, borderRadius:'50%', background:'var(--lav)', border:'2px solid #fff' } })
+                : null,
               e(Creature,{ inst:m, size:42, bob:true }),
               e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } }, (m.shiny||m.form?'\u2728':'')+sp.name),
               e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)', marginBottom:3 } }, 'Lv'+m.level+' \u00b7 \u2694'+window.Derived.monPower(m)),

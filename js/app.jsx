@@ -11,6 +11,7 @@
     quests:    ()=> e(window.Quests),
     recall:    ()=> e(window.Recall),
     team:      ()=> e(window.Team),
+    pokedex:   ()=> e(window.Pokedex),
     shop:      ()=> e(window.Shop),
     map:       ()=> e(window.Meadow),
   };

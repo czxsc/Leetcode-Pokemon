@@ -29,16 +29,11 @@
   function Shop(){
     const st = window.useStore();
     const [pick, setPick] = useState(st.team[0] || st.owned[0]?.iid);
-    const [megaPick, setMegaPick] = useState(null);
     const [toast, setToast] = useState(null);
     const flash = (m)=>{ setToast(m); setTimeout(()=>setToast(null), 1800); };
 
     const byId = Object.fromEntries(st.owned.map(o=>[o.iid,o]));
     const candyTarget = byId[pick];
-
-    // mega/gmax-eligible: species can transform and not already transformed
-    const megaEligible = st.owned.filter(o=>{ const sp=window.PixelMon.byId(o.sp); return window.PixelMon.canTransform(sp) && !o.form; });
-    const megaTarget = byId[megaPick] || megaEligible[0];
 
     function buyCandy(){
       if(!candyTarget) return;
@@ -49,15 +44,12 @@
       }
     }
     function buySnack(){ if(window.Store.teamSnack()) flash('+5 EXP to all team members!'); }
-    function buyMega(){
-      if(!megaTarget) return;
-      const sp = window.PixelMon.byId(megaTarget.sp);
-      if(window.Store.megaStone(megaTarget.iid)){ flash(window.PixelMon.formName(sp, window.PixelMon.transformKind(sp))+' unlocked!'); setMegaPick(null); }
-    }
+    function buyMega(){ if(window.Store.buyMegaStone()) flash('Mega Stone added to your bag!'); }
+    function buyGmax(){ if(window.Store.buyGmaxStone()) flash('Gigantamax Stone added to your bag!'); }
 
     return e('div',{ style:{ height:'100%', display:'grid', gridTemplateColumns:'1fr 360px', gap:14, position:'relative' } },
       // LEFT — items + picker
-      e('div',{ className:'panel', style:{ display:'flex', flexDirection:'column', gap:14 } },
+      e('div',{ className:'panel', style:{ display:'flex', flexDirection:'column', gap:14, overflowY:'auto' } },
         e('div',{ style:{ display:'flex', alignItems:'center' } },
           e('div',{ className:'panel-title', style:{ margin:0, flex:1 } }, e('span',{className:'dot'}), 'Trainer Shop'),
           e('div',{ className:'cur-badge' }, e(Coin,{size:16}), st.coins.toLocaleString())),
@@ -85,21 +77,26 @@
             e('span',{ style:{ display:'flex', alignItems:'center', gap:5 } }, e(Coin,{size:13}), '500'))),
 
         // Mega Stone
-        e('div',{ className:'chip-card', style:{ padding:16 } },
-          e('div',{ style:{ display:'flex', alignItems:'center', gap:12, marginBottom:12 } },
-            e('div',{ style:{ width:46, height:46, borderRadius:10, background:'var(--lav-lite)', border:'2px solid var(--lav-deep)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 } }, '\ud83d\udd2e'),
-            e('div',{ style:{ flex:1 } },
+        e('div',{ className:'chip-card', style:{ padding:16, display:'flex', alignItems:'center', gap:12 } },
+          e('div',{ style:{ width:46, height:46, borderRadius:10, background:'var(--lav-lite)', border:'2px solid var(--lav-deep)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 } }, '\ud83d\udd2e'),
+          e('div',{ style:{ flex:1 } },
+            e('div',{ style:{ display:'flex', alignItems:'center', gap:8 } },
               e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:13, color:'var(--ink)' } }, 'Mega Stone'),
-              e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', marginTop:3 } }, 'Mega-Evolve or Gigantamax \u00b7 big power boost')),
-            e('button',{ className:'btn lav', disabled: st.coins<1500 || !megaTarget, style:{ fontSize:11 }, onClick:buyMega },
-              e('span',{ style:{ display:'flex', alignItems:'center', gap:5 } }, e(Coin,{size:13}), '1500'))),
-          megaEligible.length===0
-            ? e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:9, color:'var(--ink-faint)', textAlign:'center', padding:'6px 0' } }, 'No eligible friends \u2014 only some species can Mega-Evolve or Gigantamax.')
-            : e('div',{},
-                e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)', marginBottom:8 } }, 'TRANSFORM:'),
-                e('div',{ style:{ display:'grid', gridTemplateColumns:'repeat(8,1fr)', gap:7 } },
-                  megaEligible.map(m=> e(PickerMon,{ key:m.iid, inst:m, selected:m.iid===(megaTarget&&megaTarget.iid), onPick:setMegaPick }))))
-        )
+              e('span',{ className:'type-tag', style:{ background:'var(--lav)', color:'#fff' } }, 'bag '+(st.megaStones||0))),
+            e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', marginTop:3 } }, 'Unlock a Mega Evolution from a friend\u2019s detail card')),
+          e('button',{ className:'btn lav', disabled: st.coins<1500, style:{ fontSize:11 }, onClick:buyMega },
+            e('span',{ style:{ display:'flex', alignItems:'center', gap:5 } }, e(Coin,{size:13}), '1500'))),
+
+        // Gigantamax Stone
+        e('div',{ className:'chip-card', style:{ padding:16, display:'flex', alignItems:'center', gap:12 } },
+          e('div',{ style:{ width:46, height:46, borderRadius:10, background:'var(--pink-lite)', border:'2px solid var(--pink-deep)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 } }, '\ud83c\udf00'),
+          e('div',{ style:{ flex:1 } },
+            e('div',{ style:{ display:'flex', alignItems:'center', gap:8 } },
+              e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:13, color:'var(--ink)' } }, 'Gigantamax Stone'),
+              e('span',{ className:'type-tag', style:{ background:'var(--pink)', color:'#fff' } }, 'bag '+(st.gmaxStones||0))),
+            e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', marginTop:3 } }, 'Unlock a Gigantamax form from a friend\u2019s detail card')),
+          e('button',{ className:'btn pink', disabled: st.coins<1500, style:{ fontSize:11 }, onClick:buyGmax },
+            e('span',{ style:{ display:'flex', alignItems:'center', gap:5 } }, e(Coin,{size:13}), '1500')))
       ),
 
       // RIGHT — selected preview

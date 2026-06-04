@@ -13,7 +13,7 @@
     legendary: { label:'Legendary', mult:5, color:'#ecc46c', glow:'#fbe7b0' },
   };
   const PULL_WEIGHTS = { common:60, rare:25, epic:10, legendary:5 };
-  const SHINY_CHANCE = 0.04;                 // gacha shiny odds
+  const SHINY_CHANCE = 0.10;                 // gacha shiny odds
   const FORM_BONUS = { mega:1.6, gmax:1.9 }; // power multiplier when transformed
   const EVO_COPIES = 5;                      // dupes needed to evolve
   const DUP_LEVELS = 5;                      // levels for a non-evolvable dupe
@@ -59,6 +59,9 @@
   }
   function canTransform(sp){ return !!(sp && (sp.mega || sp.gmax)); }
   function transformKind(sp){ return sp.mega ? 'mega' : sp.gmax ? 'gmax' : null; }
+  // every transform form a species can take (in display order)
+  function formsFor(sp){ const out=[]; if(sp&&sp.mega) out.push('mega'); if(sp&&sp.gmax) out.push('gmax'); return out; }
+  function megaSlug(sp){ return (typeof sp.mega==='string') ? sp.mega : sp.id+'-mega'; }
   function formName(sp, form){
     if(form==='gmax') return 'Gigantamax '+sp.name;
     const suffix = (typeof sp.mega==='string' && sp.mega.endsWith('-x')) ? ' X'
@@ -71,7 +74,7 @@
   function spriteUrl(sp, opts){
     opts = opts||{};
     const sh = opts.shiny ? 'shiny' : 'normal';
-    if(opts.form==='mega'){ const m = (typeof sp.mega==='string')?sp.mega:sp.id+'-mega'; return `${BASE}/home/${sh}/${m}.png`; }
+    if(opts.form==='mega'){ const m = (typeof sp.mega==='string')?sp.mega:sp.id+'-mega'; return `${BASE}/omega-ruby-alpha-sapphire/dex/${sh}/${m}.png`; }
     if(opts.form==='gmax'){ return `${BASE}/sword-shield/${sh}/${sp.id}-gigantamax.png`; }
     if(sp.gen<=5) return `${BASE}/black-white/anim/${sh}/${sp.id}.gif`;
     return `${BASE}/sword-shield/${sh}/${sp.id}.png`;
@@ -105,6 +108,6 @@
   }
 
   window.PixelMon = { SPECIES, RARITY, PULL_WEIGHTS, SHINY_CHANCE, FORM_BONUS, EVO_COPIES, DUP_LEVELS, TYPE_COLOR,
-    byId, tierPool, randomOfTier, rollSpecies, rollShiny, evoTarget, canTransform, transformKind, formName, spriteUrl };
+    byId, tierPool, randomOfTier, rollSpecies, rollShiny, evoTarget, canTransform, transformKind, formsFor, megaSlug, formName, spriteUrl };
   window.Creature = Creature;
 })();

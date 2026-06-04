@@ -18,18 +18,36 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
-  <script type="text/babel" src="js/dex.jsx"></script>
-  <script type="text/babel" src="js/pixelmon.jsx"></script>
-  <script type="text/babel" src="js/data.jsx"></script>
-  <script type="text/babel" src="js/store.jsx"></script>
-  <script type="text/babel" src="js/ui.jsx"></script>
-  <script type="text/babel" src="js/dashboard.jsx"></script>
-  <script type="text/babel" src="js/gacha.jsx"></script>
-  <script type="text/babel" src="js/quests.jsx"></script>
-  <script type="text/babel" src="js/recall.jsx"></script>
-  <script type="text/babel" src="js/team.jsx"></script>
-  <script type="text/babel" src="js/shop.jsx"></script>
-  <script type="text/babel" src="js/meadow.jsx"></script>
-  <script type="text/babel" src="js/app.jsx"></script>
+  <!-- Sequential, retrying loader: the in-browser Babel auto-loader drops
+       files under concurrency on this dev server, so we fetch + transform +
+       run each module in order with retries. -->
+  <script>
+  (async function(){
+    const FILES = [
+      'js/dex.jsx','js/pixelmon.jsx','js/data.jsx','js/store.jsx','js/ui.jsx',
+      'js/detail.jsx','js/dashboard.jsx','js/gacha.jsx','js/quests.jsx','js/recall.jsx',
+      'js/team.jsx','js/pokedex.jsx','js/shop.jsx','js/meadow.jsx','js/app.jsx'
+    ];
+    async function grab(f){
+      for(let attempt=0; attempt<5; attempt++){
+        try{
+          const r = await fetch(f + (f.indexOf('?')<0?'?b=':'&b=') + attempt, { cache:'no-store' });
+          if(r.ok) return await r.text();
+        }catch(e){}
+        await new Promise(res=>setTimeout(res, 180*(attempt+1)));
+      }
+      throw new Error('Could not load '+f+' after retries');
+    }
+    for(const f of FILES){
+      let src;
+      try{ src = await grab(f); }
+      catch(err){ console.error(err.message); continue; }
+      try{
+        const out = Babel.transform(src, { presets:['react'], filename:f }).code;
+        (0, eval)(out);
+      }catch(err){ console.error('Error executing '+f+': '+(err && err.message), err); }
+    }
+  })();
+  </script>
 </body>
 </html>

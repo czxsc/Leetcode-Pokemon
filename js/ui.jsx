@@ -52,6 +52,7 @@
     { id:'quests',    label:'Quests',    dot:'var(--pink)' },
     { id:'recall',    label:'Recall',    dot:'var(--sky)' },
     { id:'team',      label:'Team',      dot:'var(--sage-deep)' },
+    { id:'pokedex',   label:'Pok\u00e9dex',  dot:'var(--coin-deep)' },
     { id:'shop',      label:'Shop',      dot:'var(--coin)' },
     { id:'map',       label:'Meadow',    dot:'var(--mint)' },
   ];

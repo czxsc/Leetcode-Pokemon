@@ -4,7 +4,7 @@
    store; this is the static seed.
 ===================================================================== */
 (function(){
-  const SHARD_BY_DIFF = { Easy:50, Medium:150, Hard:500 };
+  const SHARD_BY_DIFF = { Easy:150, Medium:300, Hard:600 };
 
   // 18 NeetCode-style categories. counts = total problems available (flavor)
   const CATEGORIES = [
@@ -30,9 +30,10 @@
 
   const code = (s)=>s.replace(/^\n/,'').replace(/\n$/,'');
 
-  // helper to build a problem
+  // helper to build a problem. NOTE: the 4th arg is ignored — a fresh
+  // account starts with NOTHING solved; progress is tracked in the store.
   let _n=0;
-  const P = (cat,name,diff,solved,src)=>({ id:cat+'-'+(_n++), cat, name, diff, solved, code: src?code(src):'' });
+  const P = (cat,name,diff,solved,src)=>({ id:cat+'-'+(_n++), cat, name, diff, solved:false, code: src?code(src):'' });
 
   const PROBLEMS = {
     arrays:[
@@ -610,7 +611,7 @@ class Solution:
     SHARD_BY_DIFF, CATEGORIES, PROBLEMS, OWNED, TEAM,
     ZONES, WEATHER, SHOP, daySeed,
     STREAK: genStreak(),
-    TRAINER: { name:'trainer001', title:'LeetCode Trainer', joined:'2026' },
+    TRAINER: { name:'Sherri', title:'LeetCode Trainer', joined:'2026' },
     LEVEL_CAP: 50,
     expToNext: (level)=> level * 10,       // level 1->2 costs 10, 9->10 costs 90
     allProblems(){ return Object.values(PROBLEMS).flat(); },

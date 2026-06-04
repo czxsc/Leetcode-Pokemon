@@ -29,7 +29,7 @@
 
     // re-render for the live log (ephemeral, not in store state)
     const [, force] = useState(0);
-    useEffect(()=>{ const id=setInterval(()=>force(x=>x+1), 500); return ()=>clearInterval(id); }, []);
+    useEffect(()=>{ const id=setInterval(()=>force(x=>x+1), 250); return ()=>clearInterval(id); }, []);
 
     const tufts = useRef(Array.from({length:26}).map(()=>({ x:Math.random()*96, y:Math.random()*92, s:0.7+Math.random() }))).current;
     const log = window.Store.meadowLog;
@@ -62,6 +62,18 @@
                 e(Creature,{ inst:m, size:46, bob:true }),
                 e('div',{ style:{ position:'absolute', top:-9, left:'50%', transform:'translateX(-50%)', fontFamily:"'Silkscreen'", fontSize:7, color:'var(--wood-dark)', background:'rgba(255,255,255,.75)', padding:'1px 3px', borderRadius:3, whiteSpace:'nowrap' } }, 'Lv'+m.level)));
           }),
+
+          // floating damage numbers (per-tick, per-pokemon)
+          (boss && patrolling) ? (function(){
+            const now = Date.now();
+            return (window.Store.dmgEvents||[]).filter(d=> now-d.t < 850).map(d=>{
+              const p = RING[d.slot] || RING[0];
+              const jx = ((d.id.charCodeAt(0)||0)%16) - 8;
+              return e('div',{ key:d.id, className:'float-dmg'+(d.crit?' crit':''),
+                style:{ left:'calc('+p.x+'% + '+jx+'px)', top:(p.y-7)+'%' } },
+                (d.crit?'\u2737':'')+'-'+d.dmg);
+            });
+          })() : null,
 
           // header signs
           e('div',{ style:{ position:'absolute', top:10, left:10, display:'flex', gap:8, alignItems:'center' } },
