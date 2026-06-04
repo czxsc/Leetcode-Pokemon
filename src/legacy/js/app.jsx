@@ -18,6 +18,20 @@
 
   function App(){
     const [page, setPage] = useState('dashboard');
+    useEffect(()=>{
+      if(window.Store && window.Store.startEngine) window.Store.startEngine();
+      const onResize = ()=> fit();
+      window.addEventListener('resize', onResize);
+      fit();
+      const fitSoon = setTimeout(fit, 60);
+      const fitLater = setTimeout(fit, 300);
+      return ()=>{
+        window.removeEventListener('resize', onResize);
+        clearTimeout(fitSoon);
+        clearTimeout(fitLater);
+        if(window.Store && window.Store.stopEngine) window.Store.stopEngine();
+      };
+    }, []);
     return e('div',{ style:{ position:'absolute', inset:0, display:'flex', flexDirection:'column', padding:16 } },
       e(TopNav,{ page, setPage }),
       e('div',{ key:page, className:'fade-in', style:{ flex:1, minHeight:0 } },
@@ -34,9 +48,5 @@
     const s = Math.min(wrap.clientWidth/1280, wrap.clientHeight/800);
     screen.style.transform = `scale(${s})`;
   }
-  window.addEventListener('resize', fit);
-
-  if(window.Store && window.Store.startEngine) window.Store.startEngine();
-  ReactDOM.createRoot(document.getElementById('app')).render(e(App));
-  fit(); setTimeout(fit, 60); setTimeout(fit, 300);
+  window.LegacyApp = App;
 })();

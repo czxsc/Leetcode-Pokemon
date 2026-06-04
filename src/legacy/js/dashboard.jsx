@@ -53,38 +53,8 @@
     );
   }
 
-  // ---------- GitHub sync helpers ----------
-  const norm = (s)=> (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-  async function syncRepo(repo){
-    const { owner, name, branch } = repo;
-    const treeUrl = `https://api.github.com/repos/${owner}/${name}/git/trees/${branch||'main'}?recursive=1`;
-    const res = await fetch(treeUrl);
-    if(!res.ok) throw new Error(res.status===404?'Repo or branch not found':'GitHub error '+res.status);
-    const data = await res.json();
-    const files = (data.tree||[]).filter(t=> t.type==='blob' && /\.(py|js|ts|java|cpp|cc|c|go|rb|kt|swift|rs)$/i.test(t.path));
-    const fileMap = {};
-    files.forEach(f=>{ const base = f.path.split('/').pop().replace(/\.[^.]+$/,''); fileMap[norm(base)] = f.path; });
-    const probs = window.Store.allProblemsLive();
-    const solvedIds = []; const paths = {}; const usedFiles = new Set();
-    probs.forEach(p=>{
-      const np = norm(p.name);
-      for(const nf in fileMap){
-        if(np===nf || (np.length>=4 && nf.length>=4 && (np.startsWith(nf)||nf.startsWith(np)))){
-          solvedIds.push(p.id); paths[p.id] = fileMap[nf]; usedFiles.add(nf); break;
-        }
-      }
-    });
-    return { solvedIds, paths, fileCount:files.length, matched:solvedIds.length,
-      unmatched: Object.keys(fileMap).filter(k=>!usedFiles.has(k)).length };
-  }
-  async function fetchCode(p){
-    const st = window.Store.get(); const path = st.syncedPaths[p.id]; const repo = st.repo;
-    if(!path || !repo.owner) return;
-    const url = `https://api.github.com/repos/${repo.owner}/${repo.name}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${repo.branch||'main'}`;
-    const res = await fetch(url); if(!res.ok) return;
-    const data = await res.json();
-    try{ const code = decodeURIComponent(escape(atob((data.content||'').replace(/\n/g,'')))); window.Store.cacheCode(p.id, code); }catch(e){}
-  }
+  // ---------- local sync helpers ----------
+  const norm = (s)=> window.LocalSolutionSync.normalize(s);
 
   // ---------- modals ----------
   function AddProblemModal({ catId, onClose }){
@@ -102,7 +72,7 @@
             ['Easy','Medium','Hard'].map(d=> e('option',{ key:d, value:d }, d)))),
         e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', lineHeight:1.5, marginBottom:14 } },
           'It\u2019ll auto-mark as solved when a matching file (', e('b',{},norm(name||'problemname')||'\u2026'),
-          '.py) is found on your next GitHub sync.'),
+          '.py) is found in ', e('b',{},window.LocalSolutionSync.rootLabel), ' on your next sync.'),
         e('div',{ style:{ display:'flex', gap:10, justifyContent:'flex-end' } },
           e('button',{ className:'btn', onClick:onClose }, 'Cancel'),
           e('button',{ className:'btn green', disabled:!name.trim(), onClick:add }, 'Add'))
@@ -111,38 +81,26 @@
   }
 
   function SyncModal({ onClose }){
-    const repo = window.useStore(s=>s.repo);
-    const [owner,setOwner] = useState(repo.owner||''); const [name,setName] = useState(repo.name||'');
-    const [branch,setBranch] = useState(repo.branch||'main');
     const [status,setStatus] = useState(null); const [busy,setBusy] = useState(false);
     async function run(){
-      if(!owner.trim()||!name.trim()) return;
       setBusy(true); setStatus(null);
-      window.Store.setRepo(owner.trim(), name.trim(), branch.trim()||'main');
       try{
-        const r = await syncRepo({ owner:owner.trim(), name:name.trim(), branch:branch.trim()||'main' });
-        window.Store.applySync(r.solvedIds, r.paths);
-        setStatus({ ok:true, msg:`Matched ${r.matched} solved problem${r.matched===1?'':'s'} from ${r.fileCount} code files. ${r.unmatched} unmatched file${r.unmatched===1?'':'s'}.` });
+        const r = window.LocalSolutionSync.syncProblems(window.Store.allProblemsLive(), window.Store.categories());
+        window.Store.applySync(r.solvedIds, r.paths, r.codeById);
+        setStatus({ ok:true, msg:`Matched ${r.matched} problem${r.matched===1?'':'s'} from ${r.totalFiles} Python file${r.totalFiles===1?'':'s'}. ${r.unmatched} file${r.unmatched===1?'':'s'} did not match a dashboard problem.` });
       }catch(err){ setStatus({ ok:false, msg:err.message||'Sync failed' }); }
       setBusy(false);
     }
     return e('div',{ className:'modal-veil', onClick:onClose },
       e('div',{ className:'panel modal', onClick:(ev)=>ev.stopPropagation() },
-        e('div',{ className:'panel-title' }, e('span',{className:'dot'}), 'Sync from GitHub'),
+        e('div',{ className:'panel-title' }, e('span',{className:'dot'}), 'Sync Local Solutions'),
         e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', lineHeight:1.5, marginBottom:14 } },
-          'Point at your public solutions repo. Files are matched to problems by name (case/space-insensitive, e.g. ',
-          e('b',{},'TwoSum.py'), ' \u2192 \u201cTwo Sum\u201d). Matches auto-mark as solved; code loads when you expand a problem.'),
-        e('div',{ style:{ display:'flex', gap:10 } },
-          e('div',{ className:'field', style:{ flex:1 } }, e('label',{},'GitHub user'),
-            e('input',{ value:owner, placeholder:'username', onChange:(ev)=>setOwner(ev.target.value) })),
-          e('div',{ className:'field', style:{ flex:1 } }, e('label',{},'Repo name'),
-            e('input',{ value:name, placeholder:'leetcode-solutions', onChange:(ev)=>setName(ev.target.value) }))),
-        e('div',{ className:'field' }, e('label',{},'Branch'),
-          e('input',{ value:branch, placeholder:'main', onChange:(ev)=>setBranch(ev.target.value) })),
+          'Scans ', e('b',{},window.LocalSolutionSync.rootLabel), ' inside this project. Folder names should match the dashboard category names, and file names should be lowercase with no spaces, like ',
+          e('b',{},'validpalindrome.py'), '. Matching files are marked solved for today, loaded into the code block, and added to the Training Log.'),
         status ? e('div',{ style:{ fontSize:13, color: status.ok?'var(--sage-deep)':'var(--hard)', marginBottom:12, fontFamily:"'Silkscreen'", lineHeight:1.5 } }, (status.ok?'\u2714 ':'\u2716 ')+status.msg) : null,
         e('div',{ style:{ display:'flex', gap:10, justifyContent:'flex-end' } },
           e('button',{ className:'btn', onClick:onClose }, 'Close'),
-          e('button',{ className:'btn green', disabled:busy||!owner.trim()||!name.trim(), onClick:run }, busy?'Syncing\u2026':'Sync'))
+          e('button',{ className:'btn green', disabled:busy, onClick:run }, busy?'Syncing\u2026':'Sync'))
       )
     );
   }
@@ -151,7 +109,6 @@
   function ProblemRow({ p }){
     const st = window.useStore();
     const [open, setOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
     const solved = window.Store.isSolved(p);
     const claimed = !!st.claims[p.id];
     const code = window.Store.codeFor(p);
@@ -161,8 +118,7 @@
 
     function toggleOpen(){
       if(!solved) return;
-      const n = !open; setOpen(n);
-      if(n && !code && synced){ setLoading(true); fetchCode(p).finally(()=>setLoading(false)); }
+      setOpen(!open);
     }
     function toggleSolved(ev){ ev.stopPropagation(); if(isCustom) window.Store.setSolved(p.id, !solved); }
 
@@ -182,12 +138,14 @@
       ),
       open && solved ? e('div',{ className:'code-wrap fade-in' },
         code ? e(CodeBlock,{ code })
-          : e('pre',{ style:{ color:'#9a8fb5' } }, loading?'Fetching solution from GitHub\u2026' : synced?'Could not load file \u2014 check the repo is public.' : 'No solution code yet.\nPush it to your repo and Sync, or it\u2019s a manual solve.'),
+          : e('pre',{ style:{ color:'#9a8fb5' } }, synced?'Synced as solved, but no Python source was cached for this file.' : 'No solution code yet.\nAdd the Python file under your local solutions folder and Sync, or it\u2019s a manual solve.'),
         e('div',{ className:'code-bar' },
           e('button',{ className:'coin'+(claimed?' claimed':''), title: claimed?'Claimed':'Claim reward',
             onClick:()=> window.Store.claimSolve(p.id, amount) }, claimed?'\u2666':'?'),
           e('span',{ className:'earn' }, claimed ? 'Shards claimed \u00b7 +1 EXP to team' : `Claim +${amount} Shards`),
           e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:9, color:'var(--shard-lite)' } }, 'Completed'),
+          synced ? e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)', marginLeft:8, marginRight:4, maxWidth:220, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+            title:st.syncedPaths[p.id] }, st.syncedPaths[p.id]) : null,
           e('input',{ type:'date', value: window.Store.solveDate(p) || '', max: window.Store.TODAY,
             onChange:(ev)=> window.Store.setSolveDate(p.id, ev.target.value),
             title:'Date this problem was completed \u2014 feeds your Training Log',

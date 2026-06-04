@@ -268,10 +268,13 @@
     },
     setRepo(owner,name,branch){ set({ ...state, repo:{ owner, name, branch:branch||'main' } }); },
     cacheCode(pid, code){ set({ ...state, fetchedCode:{ ...state.fetchedCode, [pid]:code } }); },
-    applySync(solvedIds, paths){
+    applySync(solvedIds, paths, codeById){
       const solved = { ...state.solved }; const solveDates = { ...state.solveDates };
-      solvedIds.forEach(id=>{ solved[id]=true; if(!solveDates[id]) solveDates[id]=TODAY; });
-      set({ ...state, solved, syncedPaths:{ ...state.syncedPaths, ...paths }, lastSync:Date.now() });
+      solvedIds.forEach(id=>{ solved[id]=true; solveDates[id]=TODAY; });
+      set({ ...state, solved, solveDates,
+        syncedPaths:{ ...state.syncedPaths, ...paths },
+        fetchedCode:{ ...state.fetchedCode, ...(codeById||{}) },
+        lastSync:Date.now() });
     },
 
     // ---- MEADOW control ----
