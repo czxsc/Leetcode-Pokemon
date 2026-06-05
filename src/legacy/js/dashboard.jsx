@@ -4,7 +4,7 @@
 ===================================================================== */
 (function(){
   const e = React.createElement;
-  const { useState } = React;
+  const { useRef, useState } = React;
 
   // ---------- LEFT: category menu ----------
   function NewCategoryModal({ onClose, onCreate }){
@@ -82,14 +82,47 @@
 
   function SyncModal({ onClose }){
     const [status,setStatus] = useState(null); const [busy,setBusy] = useState(false);
+    const fileRef = useRef(null);
     async function run(){
       setBusy(true); setStatus(null);
       try{
         const r = window.LocalSolutionSync.syncProblems(window.Store.allProblemsLive(), window.Store.categories());
-        window.Store.applySync(r.solvedIds, r.paths, r.codeById);
+        window.Store.applySync(r.solvedIds, r.paths);
         setStatus({ ok:true, msg:`Matched ${r.matched} problem${r.matched===1?'':'s'} from ${r.totalFiles} Python file${r.totalFiles===1?'':'s'}. ${r.unmatched} file${r.unmatched===1?'':'s'} did not match a dashboard problem.` });
       }catch(err){ setStatus({ ok:false, msg:err.message||'Sync failed' }); }
       setBusy(false);
+    }
+    function exportBackup(){
+      try{
+        const blob = new Blob([window.Store.exportData()], { type:'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pokeleet-backup-${window.Store.TODAY}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setStatus({ ok:true, msg:'Backup exported. Keep that JSON somewhere safe if you want long-term recovery.' });
+      }catch(err){
+        setStatus({ ok:false, msg:err.message||'Could not export backup.' });
+      }
+    }
+    function importBackup(ev){
+      const file = ev.target.files && ev.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        try{
+          window.Store.importData(String(reader.result||''));
+          setStatus({ ok:true, msg:'Backup imported successfully.' });
+        }catch(err){
+          setStatus({ ok:false, msg:err.message||'Could not import backup.' });
+        }
+      };
+      reader.onerror = ()=> setStatus({ ok:false, msg:'Could not read the selected backup file.' });
+      reader.readAsText(file);
+      ev.target.value = '';
     }
     return e('div',{ className:'modal-veil', onClick:onClose },
       e('div',{ className:'panel modal', onClick:(ev)=>ev.stopPropagation() },
@@ -97,6 +130,10 @@
         e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', lineHeight:1.5, marginBottom:14 } },
           'Scans ', e('b',{},window.LocalSolutionSync.rootLabel), ' inside this project. Folder names should match the dashboard category names, and file names should be lowercase with no spaces, like ',
           e('b',{},'validpalindrome.py'), '. Matching files are marked solved for today, loaded into the code block, and added to the Training Log.'),
+        e('div',{ style:{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap' } },
+          e('button',{ className:'btn', type:'button', onClick:exportBackup }, 'Export Backup'),
+          e('button',{ className:'btn', type:'button', onClick:()=>fileRef.current && fileRef.current.click() }, 'Import Backup'),
+          e('input',{ ref:fileRef, type:'file', accept:'application/json,.json', onChange:importBackup, style:{ display:'none' } })),
         status ? e('div',{ style:{ fontSize:13, color: status.ok?'var(--sage-deep)':'var(--hard)', marginBottom:12, fontFamily:"'Silkscreen'", lineHeight:1.5 } }, (status.ok?'\u2714 ':'\u2716 ')+status.msg) : null,
         e('div',{ style:{ display:'flex', gap:10, justifyContent:'flex-end' } },
           e('button',{ className:'btn', onClick:onClose }, 'Close'),
@@ -239,7 +276,7 @@
         // header
         e('div',{ style:{ display:'flex', gap:12, alignItems:'center', marginBottom:12 } },
           e('div',{ style:{ width:78, height:78, borderRadius:12, background:'var(--lav-lite)', border:'3px solid var(--lav-deep)', overflow:'hidden', flex:'none', boxShadow:'inset 0 2px 0 rgba(255,255,255,.4), 0 3px 0 rgba(124,90,61,.18)' } },
-            e('img',{ src:'assets/PokeAvatar.png', alt:'Trainer avatar', draggable:false,
+            e('img',{ src:window.AppAssets && window.AppAssets.pokeAvatar, alt:'Trainer avatar', draggable:false,
               style:{ width:'100%', height:'100%', objectFit:'cover', imageRendering:'pixelated', display:'block' } })),
           e('div',{ style:{ flex:1 } },
             e('div',{ className:'pixel-font', style:{ fontSize:15, color:'var(--wood-dark)' } }, st && window.DATA.TRAINER.name),

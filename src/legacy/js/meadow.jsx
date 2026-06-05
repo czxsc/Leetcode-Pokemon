@@ -7,7 +7,6 @@
   const e = React.createElement;
   const { useState, useEffect, useRef } = React;
   const RARITY = window.PixelMon.RARITY;
-  const TODAY = '2026-06-04';
 
   // 6 slots arranged around the boss (percent positions in the field)
   const RING = [
@@ -22,7 +21,7 @@
   function Meadow(){
     const st = window.useStore();
     const D = window.Derived;
-    const { zone, weather } = window.DATA.daySeed(TODAY);
+    const { zone, weather } = window.DATA.daySeed(window.Store.TODAY);
     const team = D.teamList();
     const boss = st.meadow.boss;
     const patrolling = st.meadow.patrolling;

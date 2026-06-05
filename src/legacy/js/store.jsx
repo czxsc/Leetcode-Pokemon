@@ -6,14 +6,14 @@
 ===================================================================== */
 (function(){
   const KEY = 'pokeleet_v5';
+  const BACKUP_VERSION = 1;
   const { OWNED, TEAM } = window.DATA;
   const PM = window.PixelMon;
   const RARITY = PM.RARITY;
   const CAP = window.DATA.LEVEL_CAP;
   const expToNext = window.DATA.expToNext;
-  const TODAY = '2026-06-04';
-  const T0 = (()=>{ const [y,m,d]=TODAY.split('-').map(Number); return Date.UTC(y, m-1, d); })();
-  function daysAgo(n){ return new Date(T0 - n*86400000).toISOString().slice(0,10); }
+  function getToday(){ return window.DateUtil.todayLocal(); }
+  function daysAgo(n, base){ return window.DateUtil.daysAgo(n, base || getToday()); }
 
   // pity thresholds
   const EPIC_PITY = 15, LEGEND_PITY = 40, TARGET_PITY = 100;
@@ -74,9 +74,9 @@
       guaranteedTarget: null,
       customProblems: {}, customCategories: [],
       repo: { owner:'', name:'', branch:'main' },
-      syncedPaths: {}, fetchedCode: {}, lastSync: 0,
+      syncedPaths: {}, lastSync: 0,
       meadow: { patrolling:false, coinsToday:0, kills:0, boss:null, nextSpawnAt:0, lastActive:0 },
-      lastDay: TODAY, v: 5,
+      lastDay: getToday(), v: 5,
     };
   }
 
@@ -96,6 +96,8 @@
         if(!s.demoEvo){ merged.owned = applyDemoCopies(merged.owned, merged.team); merged.demoEvo = true; }
         merged.owned = migrateForms(merged.owned);
         if(!s.solveDates || !Object.keys(s.solveDates).length) merged.solveDates = seedSolveDates();
+        delete merged.fetchedCode;
+        merged.lastDay = getToday();
         return merged;
       } }
     }catch(e){}
@@ -125,7 +127,7 @@
     claimSolve(problemId, shardAmt){
       if(state.claims[problemId]) return;
       const solveDates = { ...state.solveDates };
-      if(!solveDates[problemId]) solveDates[problemId] = TODAY;
+      if(!solveDates[problemId]) solveDates[problemId] = getToday();
       set({ ...state, claims:{ ...state.claims, [problemId]:true }, solveDates,
         shards: state.shards + shardAmt, owned: mapExp(state.owned, state.team, 1) });
     },
@@ -257,7 +259,7 @@
     },
     setSolved(pid, val){
       const solved = { ...state.solved }; const solveDates = { ...state.solveDates };
-      if(val){ solved[pid]=true; if(!solveDates[pid]) solveDates[pid]=TODAY; }
+      if(val){ solved[pid]=true; if(!solveDates[pid]) solveDates[pid]=getToday(); }
       else { delete solved[pid]; delete solveDates[pid]; }
       set({ ...state, solved, solveDates });
     },
@@ -267,14 +269,34 @@
       set({ ...state, solveDates });
     },
     setRepo(owner,name,branch){ set({ ...state, repo:{ owner, name, branch:branch||'main' } }); },
-    cacheCode(pid, code){ set({ ...state, fetchedCode:{ ...state.fetchedCode, [pid]:code } }); },
-    applySync(solvedIds, paths, codeById){
+    applySync(solvedIds, paths){
       const solved = { ...state.solved }; const solveDates = { ...state.solveDates };
-      solvedIds.forEach(id=>{ solved[id]=true; solveDates[id]=TODAY; });
+      const today = getToday();
+      solvedIds.forEach(id=>{ solved[id]=true; solveDates[id]=today; });
       set({ ...state, solved, solveDates,
         syncedPaths:{ ...state.syncedPaths, ...paths },
-        fetchedCode:{ ...state.fetchedCode, ...(codeById||{}) },
+        lastDay: today,
         lastSync:Date.now() });
+    },
+    exportData(){
+      return JSON.stringify({
+        type:'pokeleet-backup',
+        version:BACKUP_VERSION,
+        exportedAt:new Date().toISOString(),
+        state,
+      }, null, 2);
+    },
+    importData(raw){
+      let parsed;
+      try{ parsed = JSON.parse(raw); }catch(e){ throw new Error('Backup file is not valid JSON.'); }
+      const nextState = parsed && parsed.type==='pokeleet-backup' ? parsed.state : parsed;
+      if(!nextState || nextState.v !== 5) throw new Error('Backup format is not supported by this version.');
+      const merged = Object.assign(seed(), nextState,
+        { meadow: Object.assign(seed().meadow, nextState.meadow||{}), repo: Object.assign(seed().repo, nextState.repo||{}) });
+      merged.owned = migrateForms(merged.owned);
+      delete merged.fetchedCode;
+      merged.lastDay = getToday();
+      set(merged);
     },
 
     // ---- MEADOW control ----
@@ -290,7 +312,10 @@
   function allProblemsLive(){ return categories().flatMap(c=> problemsFor(c.id)); }
   Store.categories = categories;
   function isSolved(p){ return !!(p.solved || state.solved[p.id]); }
-  function codeFor(p){ return state.fetchedCode[p.id] || p.code || ''; }
+  function codeFor(p){
+    const path = state.syncedPaths[p.id];
+    return (path && window.LocalSolutionSync.resolveCode(path)) || p.code || '';
+  }
   function solveDate(p){ return state.solveDates[p.id] || null; }
   Store.problemsFor = problemsFor; Store.allProblemsLive = allProblemsLive; Store.isSolved = isSolved; Store.codeFor = codeFor; Store.solveDate = solveDate;
 
@@ -323,7 +348,7 @@
 
   function tick(){
     const m = state.meadow; if(!m.patrolling) return;
-    const { zone, weather } = window.DATA.daySeed(TODAY);
+    const { zone, weather } = window.DATA.daySeed(getToday());
     const now = Date.now();
     if(!m.boss){
       if(now >= (m.nextSpawnAt||0)){
@@ -376,7 +401,7 @@
     if(m.patrolling && m.lastActive){
       const awaySec = Math.min(4*3600, (Date.now()-m.lastActive)/1000);
       if(awaySec > 60){
-        const { zone } = window.DATA.daySeed(TODAY);
+        const { zone } = window.DATA.daySeed(getToday());
         const avgFight = 165, kills = Math.floor(awaySec/avgFight);
         if(kills>0){
           const avgCoins = Math.round((zone.coinFloor+zone.coinCeil)/2 * 0.35 * 1.4);
@@ -424,7 +449,7 @@
   function trainingGrid(weeks){
     weeks = weeks||18;
     const counts = solveCountByDate();
-    const todayDow = new Date(T0).getUTCDay();           // 0 Sun .. 6 Sat
+    const todayDow = new Date(window.DateUtil.utcDateFromIso(getToday())).getUTCDay();           // 0 Sun .. 6 Sat
     const startOffset = (weeks-1)*7 + todayDow;
     const grid = [];
     for(let w=0; w<weeks; w++){
@@ -460,7 +485,8 @@
   }
 
   Store.startEngine = startEngine; Store.stopEngine = stopEngine;
-  Store.daysAgo = daysAgo; Store.TODAY = TODAY;
+  Store.daysAgo = daysAgo;
+  Object.defineProperty(Store, 'TODAY', { get(){ return getToday(); } });
   window.Store = Store; window.useStore = useStore;
   window.Derived = { monPower, solvedCounts, weightedPoints, teamMultiplier,
     teamList, teamBasePower, teamPower, categoryStats, streakInfo, expToNext,

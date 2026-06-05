@@ -48,11 +48,12 @@ const FILES = Object.entries(SOLUTION_FILES).map(([path, code]) => ({
 }))
 
 export function createLocalSolutionSync() {
+  const codeByPath = Object.fromEntries(FILES.map((file) => [file.path, file.code]))
+
   function syncProblems(problems, categories) {
     const categoryById = Object.fromEntries(categories.map((category) => [category.id, category]))
     const solvedIds = []
     const paths = {}
-    const codeById = {}
     const usedPaths = new Set()
 
     problems.forEach((problem) => {
@@ -71,14 +72,12 @@ export function createLocalSolutionSync() {
 
       solvedIds.push(problem.id)
       paths[problem.id] = match.path
-      codeById[problem.id] = match.code
       usedPaths.add(match.path)
     })
 
     return {
       solvedIds,
       paths,
-      codeById,
       matched: solvedIds.length,
       totalFiles: FILES.length,
       unmatched: FILES.filter((file) => !usedPaths.has(file.path)).length,
@@ -88,6 +87,9 @@ export function createLocalSolutionSync() {
   return {
     normalize,
     rootLabel: 'Neetcode 150',
+    resolveCode(path) {
+      return codeByPath[path] || ''
+    },
     syncProblems,
   }
 }
