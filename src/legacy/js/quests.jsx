@@ -9,11 +9,11 @@
     { id:'login',  name:'Log In',            desc:'Open Pok\u00e9Leet today.',              reward:50,  goal:1,
       progress:()=>1 },
     { id:'solve1', name:'Solve 1 Problem',   desc:'Claim shards on any problem.',           reward:100, goal:1,
-      progress:(s)=>Object.keys(s.claims).length },
+      progress:(s)=>Object.values(s.claimDates||{}).filter(d=>d===window.Store.TODAY).length },
     { id:'solve3', name:'Solve 3 Problems',  desc:'Claim shards on three problems.',        reward:250, goal:3,
-      progress:(s)=>Object.keys(s.claims).length },
+      progress:(s)=>Object.values(s.claimDates||{}).filter(d=>d===window.Store.TODAY).length },
     { id:'refresh',name:'Daily Refresher',   desc:'Finish an Active Recall quiz.',          reward:150, goal:1,
-      progress:(s)=>s.recallBest>0?1:0 },
+      progress:(s)=>s.recallToday?1:0 },
   ];
 
   function QuestRow({ q, st }){

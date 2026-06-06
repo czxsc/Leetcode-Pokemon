@@ -7,8 +7,8 @@
   const e = React.createElement;
   const { useState, useRef } = React;
   const RARITY = window.PixelMon.RARITY;
-  const COST = { single:500, multi:2000 };
-  const EPIC_PITY = 15, LEGEND_PITY = 40, TARGET_PITY = 100;
+  const COST = { single:400, multi:2000 };
+  const EPIC_PITY = 15, LEGEND_PITY = 40, LEGEND_TARGET_PITY = 100, EPIC_TARGET_PITY = 60;
 
   function BigBall({ phase }){
     const cls = phase==='shake' ? 'ball-shake' : phase==='burst' ? 'ball-burst' : '';
@@ -31,7 +31,7 @@
       r.isNew ? e('div',{ style:badge('var(--pink)','var(--pink-deep)') }, r.shiny?'\u2728NEW':'NEW!')
         : e('div',{ style:badge('var(--sky)','#5f93a6') }, 'DUPE'),
       r.pity ? e('div',{ style:corner('var(--coin)','var(--coin-line)','#7a5a14') }, 'PITY') : null,
-      r.target ? e('div',{ style:corner('var(--sage)','var(--sage-deep)','#3e5226') }, 'TARGET') : null,
+      r.target ? e('div',{ style:corner('var(--sage)','var(--sage-deep)','#3e5226') }, r.targetTier==='epic'?'EPIC TARGET':'LEGEND TARGET') : null,
       e('div',{ style:{ background:rar.glow, borderRadius:10, padding:big?8:5, display:'inline-block', marginBottom:6 } },
         e(Creature,{ species:r.speciesId, shiny:r.shiny, size, bob:true })),
       e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:big?13:9, color:'var(--ink)', whiteSpace:'nowrap' } }, (r.shiny?'\u2728':'')+sp.name),
@@ -50,20 +50,23 @@
   function dupMsg(){ return { fontFamily:"'Silkscreen'", fontSize:8, color:'var(--shard-deep)', marginTop:6, lineHeight:1.5 }; }
 
   // ---- target picker modal ----
-  function TargetModal({ onClose }){
+  function TargetModal({ tier, onClose }){
     const [q, setQ] = useState('');
     const all = window.PixelMon.SPECIES;
     const ql = q.trim().toLowerCase();
-    const list = (ql ? all.filter(s=> s.name.toLowerCase().includes(ql) || s.id.includes(ql))
-                     : all.filter(s=> s.rarity==='legendary' || s.rarity==='epic')).slice(0,140);
-    function pick(id){ window.Store.setGuaranteedTarget(id); onClose(); }
+    const pool = all.filter(s=> s.rarity===tier);
+    const list = (ql ? pool.filter(s=> s.name.toLowerCase().includes(ql) || s.id.includes(ql)) : pool).slice(0,140);
+    function pick(id){ tier==='legendary' ? window.Store.setLegendaryTarget(id) : window.Store.setEpicTarget(id); onClose(); }
     return e('div',{ className:'modal-veil', onClick:onClose },
       e('div',{ className:'panel modal', onClick:(ev)=>ev.stopPropagation(), style:{ width:560, display:'flex', flexDirection:'column', maxHeight:'82%' } },
-        e('div',{ className:'panel-title' }, e('span',{className:'dot'}), 'Choose a Guaranteed Target'),
+        e('div',{ className:'panel-title' }, e('span',{className:'dot'}), tier==='legendary'?'Choose a Legendary Target':'Choose an Epic Target'),
         e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', lineHeight:1.5, marginBottom:10 } },
-          'Pick any Pok\u00e9mon to chase for a completion goal. You\u2019re guaranteed to pull it within ', e('b',{},'100 draws'),
-          ' \u2014 the counter resets if you get it sooner. (Showing epics & legendaries; search for any.)'),
-        e('input',{ value:q, autoFocus:true, placeholder:'Search all Pok\u00e9mon\u2026', onChange:(ev)=>setQ(ev.target.value),
+          tier==='legendary'
+            ? ['Pick a ', e('b',{},'legendary'), ' to chase. You\u2019re guaranteed to pull it within ', e('b',{},'100 draws'),
+              ' \u2014 the counter resets if you get it sooner.']
+            : ['Pick an ', e('b',{},'epic'), ' to chase. You\u2019re guaranteed to pull it within ', e('b',{},'60 draws'),
+              ' \u2014 the counter resets if you get it sooner.']),
+        e('input',{ value:q, autoFocus:true, placeholder:`Search ${tier} Pok\u00e9mon\u2026`, onChange:(ev)=>setQ(ev.target.value),
           style:{ marginBottom:12 } }),
         e('div',{ style:{ flex:1, minHeight:0, overflowY:'auto', display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:8, paddingRight:4 } },
           list.map(s=> e('button',{ key:s.id, onClick:()=>pick(s.id), title:s.name,
@@ -73,7 +76,7 @@
             e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:7, color:'var(--ink)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' } }, s.name))),
           list.length===0 ? e('div',{ style:{ gridColumn:'1/-1', textAlign:'center', color:'var(--ink-faint)', padding:20 } }, 'No matches') : null),
         e('div',{ style:{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:12 } },
-          e('button',{ className:'btn', onClick:()=>{ window.Store.setGuaranteedTarget(null); onClose(); } }, 'Clear Target'),
+          e('button',{ className:'btn', onClick:()=>{ tier==='legendary' ? window.Store.setLegendaryTarget(null) : window.Store.setEpicTarget(null); onClose(); } }, 'Clear Target'),
           e('button',{ className:'btn', onClick:onClose }, 'Close'))
       )
     );
@@ -87,11 +90,31 @@
       e('div',{ className:'minibar', style:{ height:8 } }, e('i',{ style:{ width:Math.min(100,frac*100)+'%', background:color } })));
   }
 
+  function TargetSummary({ label, target, chooseLabel, onChoose, pity, pityMax, color, emptyText }){
+    return [
+      e('div',{ key:label+'-head', style:{ display:'flex', alignItems:'center', marginBottom:9 } },
+        e('span',{ style:{ flex:1, fontFamily:"'Silkscreen'", fontSize:9, color:'var(--ink-faint)' } }, label),
+        e('button',{ className:'iconbtn', onClick:onChoose }, target?'Change':chooseLabel)),
+      target
+        ? e('div',{ key:label+'-body' },
+            e('div',{ style:{ display:'flex', alignItems:'center', gap:10, marginBottom:8 } },
+              e('div',{ style:{ background:RARITY[target.rarity].glow, borderRadius:9, padding:4, flex:'none' } }, e(Creature,{ species:target.id, size:38, bob:true })),
+              e('div',{ style:{ flex:1, minWidth:0 } },
+                e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:11, color:'var(--ink)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' } }, target.name),
+                e('div',{ style:{ marginTop:3 } }, e(RarityTag,{ rarity:target.rarity })))),
+            e('div',{ style:{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 } },
+              e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)' } }, 'in '+Math.max(0,pityMax-pity)+' draws'),
+              e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color } }, pity+'/'+pityMax)),
+            e('div',{ className:'minibar', style:{ height:8 } }, e('i',{ style:{ width:(pity/pityMax*100)+'%', background:`linear-gradient(90deg,${color==='var(--lav-deep)'?'var(--lav)':'var(--sage)'},${color})` } })))
+          : e('div',{ key:label+'-empty', style:{ fontSize:12, color:'var(--ink-faint)', lineHeight:1.4 } }, emptyText)
+    ];
+  }
+
   function Gacha(){
     const st = window.useStore();
     const [phase, setPhase] = useState('idle');
     const [results, setResults] = useState(null);
-    const [picker, setPicker] = useState(false);
+    const [picker, setPicker] = useState(null);
     const busy = useRef(false);
 
     function draw(kind){
@@ -110,10 +133,11 @@
 
     const idle = phase==='idle' || phase==='reveal';
     const W = window.PixelMon.PULL_WEIGHTS;
-    const target = st.guaranteedTarget ? window.PixelMon.byId(st.guaranteedTarget) : null;
+    const legendaryTarget = st.guaranteedLegendary ? window.PixelMon.byId(st.guaranteedLegendary) : null;
+    const epicTarget = st.guaranteedEpic ? window.PixelMon.byId(st.guaranteedEpic) : null;
 
     return e('div',{ style:{ height:'100%', display:'grid', gridTemplateColumns:'1fr 360px', gap:14 } },
-      picker ? e(TargetModal,{ onClose:()=>setPicker(false) }) : null,
+      picker ? e(TargetModal,{ tier:picker, onClose:()=>setPicker(null) }) : null,
       // LEFT stage
       e('div',{ className:'panel cream', style:{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' } },
         e('div',{ className:'panel-title', style:{ position:'absolute', top:16, left:16 } }, e('span',{className:'dot'}), 'Gacha Lab'),
@@ -154,28 +178,32 @@
               e('span',{ style:{ width:9, height:9, borderRadius:'50%', background:RARITY[k].color, border:'1px solid rgba(0,0,0,.15)' } }),
               e('span',{ style:{ flex:1, fontSize:13, color:'var(--ink)' } }, RARITY[k].label),
               e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:11, color:'var(--ink-soft)' } }, v+'%'))),
-
-          // ----- guaranteed target -----
           e('div',{ style:{ height:1, background:'var(--card-line)', margin:'6px 0 11px' } }),
-          e('div',{ style:{ display:'flex', alignItems:'center', marginBottom:9 } },
-            e('span',{ style:{ flex:1, fontFamily:"'Silkscreen'", fontSize:9, color:'var(--ink-faint)' } }, 'GUARANTEED TARGET'),
-            e('button',{ className:'iconbtn', onClick:()=>setPicker(true) }, target?'Change':'Choose')),
-          target
-            ? e('div',{},
-                e('div',{ style:{ display:'flex', alignItems:'center', gap:10, marginBottom:8 } },
-                  e('div',{ style:{ background:RARITY[target.rarity].glow, borderRadius:9, padding:4, flex:'none' } }, e(Creature,{ species:target.id, size:38, bob:true })),
-                  e('div',{ style:{ flex:1, minWidth:0 } },
-                    e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:11, color:'var(--ink)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' } }, target.name),
-                    e('div',{ style:{ marginTop:3 } }, e(RarityTag,{ rarity:target.rarity })))),
-                e('div',{ style:{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 } },
-                  e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)' } }, 'in '+Math.max(0,TARGET_PITY-st.targetPity)+' draws'),
-                  e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--sage-deep)' } }, st.targetPity+'/'+TARGET_PITY)),
-                e('div',{ className:'minibar', style:{ height:8 } }, e('i',{ style:{ width:(st.targetPity/TARGET_PITY*100)+'%', background:'linear-gradient(90deg,var(--sage),var(--sage-deep))' } })))
-            : e('div',{ style:{ fontSize:12, color:'var(--ink-faint)', lineHeight:1.4 } },
-                'No target set. Choose one to guarantee it within 100 draws \u2014 great for finishing the Pok\u00e9dex.')),
+          ...TargetSummary({
+            label:'LEGENDARY TARGET',
+            target:legendaryTarget,
+            chooseLabel:'Choose',
+            onChoose:()=>setPicker('legendary'),
+            pity:st.legendaryTargetPity,
+            pityMax:LEGEND_TARGET_PITY,
+            color:'var(--sage-deep)',
+            emptyText:'No legendary target set. Choose one to guarantee it within 100 draws.',
+          }),
+          e('div',{ style:{ height:1, background:'var(--card-line)', margin:'10px 0 11px' } }),
+          ...TargetSummary({
+            label:'EPIC TARGET',
+            target:epicTarget,
+            chooseLabel:'Choose',
+            onChoose:()=>setPicker('epic'),
+            pity:st.epicTargetPityCount,
+            pityMax:EPIC_TARGET_PITY,
+            color:'var(--lav-deep)',
+            emptyText:'No epic target set. Choose one to guarantee it within 60 draws.',
+          })
+        ),
 
         e('div',{ style:{ fontSize:12, color:'var(--ink-faint)', lineHeight:1.5, marginTop:'auto' } },
-          'Dupes of evolvable mons build toward ', e('b',{},'evolution'), ' (5 copies \u2014 evolve from a friend\u2019s card); non-evolvable dupes give ',
+          'Dupes of evolvable mons build toward ', e('b',{},'evolution'), ' (3 copies \u2014 evolve from a friend\u2019s card); non-evolvable dupes give ',
           e('b',{},'+5 levels'), '. ', e('b',{},'\u2728Shiny'), ' (10%) are separate collectibles \u2014 a shiny and normal of the same species are kept as two different friends.')
       )
     );

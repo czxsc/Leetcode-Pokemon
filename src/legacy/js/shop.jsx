@@ -1,6 +1,6 @@
 /* =====================================================================
    Shop — spend Coins (earned in the Meadow) on EXP items.
-   Rare Candy: +20 EXP to one chosen friend. Team Snack: +5 EXP to team.
+   Rare Candy: +35 EXP to one chosen friend. Team Snack: +5 EXP to team.
 ===================================================================== */
 (function(){
   const e = React.createElement;
@@ -40,7 +40,7 @@
       const before = candyTarget.level;
       if(window.Store.rareCandy(pick)){
         const after = window.Store.get().owned.find(o=>o.iid===pick).level;
-        flash(after>before ? window.PixelMon.byId(candyTarget.sp).name+' grew to Lv'+after+'!' : '+20 EXP to '+window.PixelMon.byId(candyTarget.sp).name);
+        flash(after>before ? window.PixelMon.byId(candyTarget.sp).name+' grew to Lv'+after+'!' : '+35 EXP to '+window.PixelMon.byId(candyTarget.sp).name);
       }
     }
     function buySnack(){ if(window.Store.teamSnack()) flash('+5 EXP to all team members!'); }
@@ -60,7 +60,7 @@
             e('div',{ style:{ width:46, height:46, borderRadius:10, background:'var(--pink-lite)', border:'2px solid var(--pink-deep)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 } }, '\ud83c\udf6c'),
             e('div',{ style:{ flex:1 } },
               e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:13, color:'var(--ink)' } }, 'Rare Candy'),
-              e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', marginTop:3 } }, '+20 EXP to one chosen friend')),
+              e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', marginTop:3 } }, '+35 EXP to one chosen friend')),
             e('button',{ className:'btn', disabled: st.coins<200 || !candyTarget, style:{ fontSize:11 }, onClick:buyCandy },
               e('span',{ style:{ display:'flex', alignItems:'center', gap:5 } }, e(Coin,{size:13}), '200'))),
           e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)', marginBottom:8 } }, 'FEED TO:'),

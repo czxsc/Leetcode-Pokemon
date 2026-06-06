@@ -571,8 +571,8 @@ class Solution:
 
   // ---- shop items (spend coins) ----
   const SHOP = [
-    { id:'candy', name:'Rare Candy',  cost:200, kind:'candy_one',  amount:20,
-      desc:'+20 EXP to one chosen Pok\u00e9mon. Your main upgrade lever.' },
+    { id:'candy', name:'Rare Candy',  cost:200, kind:'candy_one',  amount:35,
+      desc:'+35 EXP to one chosen Pok\u00e9mon. Your main upgrade lever.' },
     { id:'snack', name:'Team Snack',  cost:500, kind:'exp_all',    amount:5,
       desc:'+5 EXP to all 6 current team members.' },
     { id:'mega',  name:'Mega Stone', cost:1500, kind:'mega',

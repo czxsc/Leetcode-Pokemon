@@ -15,7 +15,7 @@
   const PULL_WEIGHTS = { common:60, rare:25, epic:10, legendary:5 };
   const SHINY_CHANCE = 0.10;                 // gacha shiny odds
   const FORM_BONUS = { mega:1.6, gmax:1.9 }; // power multiplier when transformed
-  const EVO_COPIES = 5;                      // dupes needed to evolve
+  const EVO_COPIES = 3;                      // dupes needed to evolve
   const DUP_LEVELS = 5;                      // levels for a non-evolvable dupe
 
   const TYPE_COLOR = {

@@ -16,7 +16,19 @@
   function daysAgo(n, base){ return window.DateUtil.daysAgo(n, base || getToday()); }
 
   // pity thresholds
-  const EPIC_PITY = 15, LEGEND_PITY = 40, TARGET_PITY = 100;
+  const EPIC_PITY = 15, LEGEND_PITY = 40, LEGEND_TARGET_PITY = 100, EPIC_TARGET_PITY = 60;
+
+  function rollDailyState(base){
+    const today = getToday();
+    if(!base || base.lastDay === today) return base;
+    return {
+      ...base,
+      quests: {},
+      recallToday: false,
+      meadow: { ...(base.meadow||{}), coinsToday: 0 },
+      lastDay: today,
+    };
+  }
 
   // Give evolvable mons a few duplicate copies so the evolution flow is live.
   function applyDemoCopies(owned, team){
@@ -67,11 +79,13 @@
     return {
       shards: 5000, coins: 0, megaStones: 0, gmaxStones: 0,
       claims: {}, solved: {}, solveDates: {},
+      claimDates: {},
       owned: migrateForms(owned),
       team: owned.map(o=>o.iid), demoEvo: true,
-      quests: {}, recallBest: 0,
-      pity: 0, epicPity: 0, targetPity: 0, totalPulls: 0,
-      guaranteedTarget: null,
+      quests: {}, recallBest: 0, recallToday: false,
+      pity: 0, epicPity: 0, totalPulls: 0,
+      guaranteedLegendary: null, guaranteedEpic: null,
+      legendaryTargetPity: 0, epicTargetPityCount: 0,
       customProblems: {}, customCategories: [],
       repo: { owner:'', name:'', branch:'main' },
       syncedPaths: {}, lastSync: 0,
@@ -92,16 +106,22 @@
         if(typeof merged.gmaxStones!=='number') merged.gmaxStones = 1;
         if(typeof merged.epicPity!=='number') merged.epicPity = 0;
         if(typeof merged.targetPity!=='number') merged.targetPity = 0;
-        if(!('guaranteedTarget' in merged)) merged.guaranteedTarget = null;
+        if(!('guaranteedLegendary' in merged)) merged.guaranteedLegendary = merged.guaranteedTarget || null;
+        if(!('guaranteedEpic' in merged)) merged.guaranteedEpic = null;
+        if(typeof merged.legendaryTargetPity!=='number') merged.legendaryTargetPity = merged.targetPity || 0;
+        if(typeof merged.epicTargetPityCount!=='number') merged.epicTargetPityCount = 0;
+        if(!merged.claimDates) merged.claimDates = {};
+        if(typeof merged.recallToday!=='boolean') merged.recallToday = false;
         if(!s.demoEvo){ merged.owned = applyDemoCopies(merged.owned, merged.team); merged.demoEvo = true; }
         merged.owned = migrateForms(merged.owned);
         if(!s.solveDates || !Object.keys(s.solveDates).length) merged.solveDates = seedSolveDates();
         delete merged.fetchedCode;
-        merged.lastDay = getToday();
-        return merged;
+        delete merged.guaranteedTarget;
+        delete merged.targetPity;
+        return rollDailyState(merged);
       } }
     }catch(e){}
-    return seed();
+    return rollDailyState(seed());
   }
   function persist(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
   function emit(){ persist(); subs.forEach(fn=>fn()); }
@@ -127,8 +147,12 @@
     claimSolve(problemId, shardAmt){
       if(state.claims[problemId]) return;
       const solveDates = { ...state.solveDates };
+      const claimDates = { ...state.claimDates };
+      const today = getToday();
       if(!solveDates[problemId]) solveDates[problemId] = getToday();
+      claimDates[problemId] = today;
       set({ ...state, claims:{ ...state.claims, [problemId]:true }, solveDates,
+        claimDates,
         shards: state.shards + shardAmt, owned: mapExp(state.owned, state.team, 1) });
     },
 
@@ -146,23 +170,28 @@
     setTeam(team){ set({ ...state, team: team.slice(0,6) }); },
 
     // ---- GACHA (cost deducted by caller) ----
-    setGuaranteedTarget(spId){ set({ ...state, guaranteedTarget: spId||null, targetPity: 0 }); },
+    setLegendaryTarget(spId){ set({ ...state, guaranteedLegendary: spId||null, legendaryTargetPity: 0 }); },
+    setEpicTarget(spId){ set({ ...state, guaranteedEpic: spId||null, epicTargetPityCount: 0 }); },
     gachaPull(count){
       let owned = state.owned.slice();
       let shards = state.shards;
-      let legendPity = state.pity||0, epicPity = state.epicPity||0, targetPity = state.targetPity||0, totalPulls = state.totalPulls||0;
-      const target = state.guaranteedTarget;
+      let legendPity = state.pity||0, epicPity = state.epicPity||0, totalPulls = state.totalPulls||0;
+      let legendTargetPity = state.legendaryTargetPity||0, epicTargetPity = state.epicTargetPityCount||0;
+      const legendTarget = state.guaranteedLegendary;
+      const epicTarget = state.guaranteedEpic;
       const results = [];
       for(let i=0;i<count;i++){
-        legendPity++; epicPity++; targetPity++; totalPulls++;
-        let sp, pityHit=false, targetHit=false;
-        if(target && targetPity>=TARGET_PITY){ sp = PM.byId(target); targetHit=true; }
+        legendPity++; epicPity++; if(legendTarget) legendTargetPity++; if(epicTarget) epicTargetPity++; totalPulls++;
+        let sp, pityHit=false, targetHit=false, targetTier=null;
+        if(legendTarget && legendTargetPity>=LEGEND_TARGET_PITY){ sp = PM.byId(legendTarget); targetHit=true; targetTier='legendary'; }
+        else if(epicTarget && epicTargetPity>=EPIC_TARGET_PITY){ sp = PM.byId(epicTarget); targetHit=true; targetTier='epic'; }
         else if(legendPity>=LEGEND_PITY){ sp = PM.randomOfTier('legendary'); pityHit=true; }
         else if(epicPity>=EPIC_PITY){ sp = (Math.random()<0.82) ? PM.randomOfTier('epic') : PM.randomOfTier('legendary'); }
         else { sp = PM.rollSpecies(); }
         if(sp.rarity==='legendary') legendPity = 0;
         if(sp.rarity==='epic' || sp.rarity==='legendary') epicPity = 0;
-        if(target && sp.id===target) targetPity = 0;
+        if(legendTarget && sp.id===legendTarget) legendTargetPity = 0;
+        if(epicTarget && sp.id===epicTarget) epicTargetPity = 0;
         const shiny = PM.rollShiny();
 
         const idx = owned.findIndex(o=> o.sp===sp.id && !!o.shiny===shiny);
@@ -172,23 +201,23 @@
           if(evo){
             const copies = Math.min(PM.EVO_COPIES, (owned[idx].copies||0)+1);
             owned[idx] = { ...owned[idx], copies };
-            results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isDup:true, copies, need:PM.EVO_COPIES, refund:25, ready: copies>=PM.EVO_COPIES, pity:pityHit, target:targetHit });
+            results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isDup:true, copies, need:PM.EVO_COPIES, refund:25, ready: copies>=PM.EVO_COPIES, pity:pityHit, target:targetHit, targetTier });
           } else {
             owned[idx] = addLevels(owned[idx], PM.DUP_LEVELS);
-            results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isDup:true, levels:PM.DUP_LEVELS, refund:25, pity:pityHit, target:targetHit });
+            results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isDup:true, levels:PM.DUP_LEVELS, refund:25, pity:pityHit, target:targetHit, targetTier });
           }
         } else {
           const iid = 'g'+Date.now().toString(36)+i+Math.floor(Math.random()*1296).toString(36);
           owned.push({ iid, sp:sp.id, level:1, exp:0, shiny, form:null, unlocked:{}, copies:0 });
-          results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isNew:true, pity:pityHit, target:targetHit });
+          results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isNew:true, pity:pityHit, target:targetHit, targetTier });
         }
       }
-      set({ ...state, owned, shards, pity:legendPity, epicPity, targetPity, totalPulls });
+      set({ ...state, owned, shards, pity:legendPity, epicPity, legendaryTargetPity:legendTargetPity, epicTargetPityCount:epicTargetPity, totalPulls });
       return results;
     },
 
     // ---- SHOP ----
-    rareCandy(iid){ if(state.coins<200) return false; set({ ...state, coins:state.coins-200, owned: mapExp(state.owned,[iid],20) }); return true; },
+    rareCandy(iid){ if(state.coins<200) return false; set({ ...state, coins:state.coins-200, owned: mapExp(state.owned,[iid],35) }); return true; },
     teamSnack(){ if(state.coins<500) return false; set({ ...state, coins:state.coins-500, owned: mapExp(state.owned, state.team,5) }); return true; },
     buyMegaStone(){ if(state.coins<1500) return false; set({ ...state, coins:state.coins-1500, megaStones:(state.megaStones||0)+1 }); return true; },
     buyGmaxStone(){ if(state.coins<1500) return false; set({ ...state, coins:state.coins-1500, gmaxStones:(state.gmaxStones||0)+1 }); return true; },
@@ -228,7 +257,7 @@
 
     completeQuest(id){ if(state.quests[id]) return; set({ ...state, quests:{ ...state.quests,[id]:true } }); },
     grantQuest(id, shards){ if(state.quests[id]) return; set({ ...state, quests:{ ...state.quests,[id]:true }, shards:state.shards+shards }); },
-    setRecallBest(n){ if(n>state.recallBest) set({ ...state, recallBest:n }); },
+    setRecallBest(n){ set({ ...state, recallBest: Math.max(state.recallBest, n), recallToday:true }); },
 
     // ---- PROBLEMS (custom + sync + dated solves) ----
     // ---- CATEGORIES (custom) ----
@@ -272,7 +301,10 @@
     applySync(solvedIds, paths){
       const solved = { ...state.solved }; const solveDates = { ...state.solveDates };
       const today = getToday();
-      solvedIds.forEach(id=>{ solved[id]=true; solveDates[id]=today; });
+      solvedIds.forEach(id=>{
+        solved[id] = true;
+        if(!solveDates[id]) solveDates[id] = today;
+      });
       set({ ...state, solved, solveDates,
         syncedPaths:{ ...state.syncedPaths, ...paths },
         lastDay: today,
@@ -295,8 +327,7 @@
         { meadow: Object.assign(seed().meadow, nextState.meadow||{}), repo: Object.assign(seed().repo, nextState.repo||{}) });
       merged.owned = migrateForms(merged.owned);
       delete merged.fetchedCode;
-      merged.lastDay = getToday();
-      set(merged);
+      set(rollDailyState(merged));
     },
 
     // ---- MEADOW control ----
