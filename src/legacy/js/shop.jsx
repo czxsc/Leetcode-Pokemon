@@ -34,6 +34,8 @@
 
     const byId = Object.fromEntries(st.owned.map(o=>[o.iid,o]));
     const candyTarget = byId[pick];
+    const copyTarget = candyTarget && window.PixelMon.byId(candyTarget.sp);
+    const canBuyCopy = !!(copyTarget && window.PixelMon.evoOptions(copyTarget).length);
 
     function buyCandy(){
       if(!candyTarget) return;
@@ -46,6 +48,10 @@
     function buySnack(){ if(window.Store.teamSnack()) flash('+5 EXP to all team members!'); }
     function buyMega(){ if(window.Store.buyMegaStone()) flash('Mega Stone added to your bag!'); }
     function buyGmax(){ if(window.Store.buyGmaxStone()) flash('Gigantamax Stone added to your bag!'); }
+    function buyCopy(){
+      if(!candyTarget || !copyTarget) return;
+      if(window.Store.buyEvolutionCopy(pick)) flash('+1 copy for '+copyTarget.name+'!');
+    }
 
     return e('div',{ style:{ height:'100%', display:'grid', gridTemplateColumns:'1fr 360px', gap:14, position:'relative' } },
       // LEFT — items + picker
@@ -75,6 +81,16 @@
             e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', marginTop:3 } }, '+5 EXP to all 6 current team members')),
           e('button',{ className:'btn green', disabled: st.coins<500, style:{ fontSize:11 }, onClick:buySnack },
             e('span',{ style:{ display:'flex', alignItems:'center', gap:5 } }, e(Coin,{size:13}), '500'))),
+
+        // Evolution Copy
+        e('div',{ className:'chip-card', style:{ padding:16, display:'flex', alignItems:'center', gap:12 } },
+          e('div',{ style:{ width:46, height:46, borderRadius:10, background:'var(--lav-lite)', border:'2px solid var(--lav-deep)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 } }, '\ud83e\udde9'),
+          e('div',{ style:{ flex:1 } },
+            e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:13, color:'var(--ink)' } }, 'Evolution Copy'),
+            e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', marginTop:3 } },
+              canBuyCopy ? ('Buy +1 duplicate copy for '+copyTarget.name) : 'Select an evolvable friend to buy a copy')),
+          e('button',{ className:'btn lav', disabled: st.coins<800 || !canBuyCopy, style:{ fontSize:11 }, onClick:buyCopy },
+            e('span',{ style:{ display:'flex', alignItems:'center', gap:5 } }, e(Coin,{size:13}), '800'))),
 
         // Mega Stone
         e('div',{ className:'chip-card', style:{ padding:16, display:'flex', alignItems:'center', gap:12 } },

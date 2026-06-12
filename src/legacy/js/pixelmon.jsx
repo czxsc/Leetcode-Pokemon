@@ -57,6 +57,11 @@
     if(sp.id==='eevee') return EEVEE_EVOS[Math.floor(Math.random()*EEVEE_EVOS.length)];
     return sp.evo;
   }
+  function evoOptions(sp){
+    if(!sp) return [];
+    if(sp.id==='eevee') return EEVEE_EVOS.slice();
+    return sp.evo ? [sp.evo] : [];
+  }
   function canTransform(sp){ return !!(sp && (sp.mega || sp.gmax)); }
   function transformKind(sp){ return sp.mega ? 'mega' : sp.gmax ? 'gmax' : null; }
   // every transform form a species can take (in display order)
@@ -108,6 +113,6 @@
   }
 
   window.PixelMon = { SPECIES, RARITY, PULL_WEIGHTS, SHINY_CHANCE, FORM_BONUS, EVO_COPIES, DUP_LEVELS, TYPE_COLOR,
-    byId, tierPool, randomOfTier, rollSpecies, rollShiny, evoTarget, canTransform, transformKind, formsFor, megaSlug, formName, spriteUrl };
+    byId, tierPool, randomOfTier, rollSpecies, rollShiny, evoTarget, evoOptions, canTransform, transformKind, formsFor, megaSlug, formName, spriteUrl };
   window.Creature = Creature;
 })();

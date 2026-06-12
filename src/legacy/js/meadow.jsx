@@ -34,9 +34,9 @@
     const log = window.Store.meadowLog;
     const weatherMatch = team.some(m=> window.PixelMon.byId(m.sp).type===weather.type);
 
-    return e('div',{ style:{ height:'100%', display:'grid', gridTemplateColumns:'1fr 320px', gap:14 } },
+    return e('div',{ style:{ height:'100%', minHeight:0, display:'grid', gridTemplateColumns:'1fr 320px', gap:14, overflow:'hidden' } },
       // FIELD
-      e('div',{ className:'panel', style:{ padding:8, position:'relative', overflow:'hidden' } },
+      e('div',{ className:'panel', style:{ padding:8, position:'relative', overflow:'hidden', minHeight:0 } },
         e('div',{ className:'meadow-field', style:{ background:'linear-gradient(160deg, '+zone.accent+'55, var(--mint))' } },
           tufts.map((t,i)=> e('div',{ key:i, className:'grass-tuft', style:{ left:t.x+'%', top:t.y+'%', transform:'scale('+t.s+')' } })),
 
@@ -90,7 +90,7 @@
         )
       ),
       // SIDE
-      e('div',{ className:'panel cream', style:{ display:'flex', flexDirection:'column', gap:12 } },
+      e('div',{ className:'panel cream', style:{ display:'flex', flexDirection:'column', gap:12, minHeight:0, overflow:'hidden' } },
         e('div',{ className:'panel-title' }, e('span',{className:'dot'}), 'Patrol'),
         e('div',{ className:'chip-card', style:{ padding:14 } },
           e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:12, color:'var(--wood-dark)', marginBottom:4 } }, zone.name),

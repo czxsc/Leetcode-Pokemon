@@ -245,11 +245,20 @@
     },
     addMegaStones(n){ set({ ...state, megaStones:(state.megaStones||0)+n }); },
     addGmaxStones(n){ set({ ...state, gmaxStones:(state.gmaxStones||0)+n }); },
+    buyEvolutionCopy(iid){
+      const inst = state.owned.find(o=>o.iid===iid); if(!inst) return false;
+      const sp = PM.byId(inst.sp); const evoChoices = sp && PM.evoOptions(sp);
+      if(!sp || !evoChoices || !evoChoices.length || state.coins<800) return false;
+      set({ ...state, coins:state.coins-800,
+        owned: state.owned.map(o=> o.iid===iid ? { ...o, copies: Math.min(PM.EVO_COPIES, (o.copies||0)+1) } : o) });
+      return true;
+    },
 
     // ---- evolve by duplicate copies (player-initiated) ----
-    evolveByDuplicates(iid){
+    evolveByDuplicates(iid, chosenEvo){
       const inst = state.owned.find(o=>o.iid===iid); if(!inst) return false;
-      const sp = PM.byId(inst.sp); const evo = sp && PM.evoTarget(sp);
+      const sp = PM.byId(inst.sp); const options = sp && PM.evoOptions(sp);
+      const evo = chosenEvo && options && options.includes(chosenEvo) ? chosenEvo : (sp && PM.evoTarget(sp));
       if(!evo || (inst.copies||0) < PM.EVO_COPIES) return false;
       set({ ...state, owned: state.owned.map(o=> o.iid===iid?{ ...o, sp:evo, copies:0, form:null, unlocked:{} }:o) });
       return true;

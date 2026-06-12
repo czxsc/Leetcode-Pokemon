@@ -31,6 +31,19 @@
     );
   }
 
+  function EvolutionChoice({ inst, onChoose }){
+    const sp = PM.byId(inst.sp);
+    const opts = PM.evoOptions(sp);
+    if(!opts || opts.length < 2) return null;
+    return e('div',{ style:{ marginBottom:10 } },
+      e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:9, color:'var(--ink-faint)', marginBottom:7 } }, 'CHOOSE EVOLUTION'),
+      e('div',{ style:{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:7 } },
+        opts.map(id=>{
+          const evo = PM.byId(id);
+          return e('button',{ key:id, className:'btn', style:{ fontSize:10, padding:'9px 8px' }, onClick:()=>onChoose(id) }, evo ? evo.name : id);
+        })));
+  }
+
   function MonDetailModal({ iid, onClose }){
     const st = window.useStore();
     const inst = st.owned.find(o=>o.iid===iid);
@@ -47,15 +60,19 @@
     const canEvo = !!(sp.evo || sp.id==='eevee');
     const copies = inst.copies||0;
     const evoReady = canEvo && copies >= PM.EVO_COPIES;
-    const evoName = (sp.id==='eevee') ? null : (sp.evo && PM.byId(sp.evo) ? PM.byId(sp.evo).name : null);
+    const evoOptions = PM.evoOptions(sp);
+    const evoName = evoOptions.length===1 && PM.byId(evoOptions[0]) ? PM.byId(evoOptions[0]).name : null;
 
     const unlocked = inst.unlocked || {};
     const megaUnlocked = !!unlocked.mega, gmaxUnlocked = !!unlocked.gmax;
 
-    function ceremony(fnName, makeForm){
+    function ceremony(action, makeForm){
       if(anim) return;
       setAnim(makeForm);
-      timers.current.push(setTimeout(()=>{ window.Store[fnName](iid); }, 540));
+      timers.current.push(setTimeout(()=>{
+        if(typeof action === 'function') action();
+        else if(action) window.Store[action](iid);
+      }, 540));
       timers.current.push(setTimeout(()=>{ setAnim(null); }, 1260));
     }
 
@@ -136,9 +153,12 @@
               e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:11, color: evoReady?'var(--sage-deep)':'var(--lav-deep)' } }, copies+' / '+PM.EVO_COPIES)),
             e('div',{ className:'evo-dots', style:{ justifyContent:'flex-start', marginBottom:11 } },
               Array.from({length:PM.EVO_COPIES}).map((_,i)=> e('i',{ key:i, className:i<copies?'on':'', style:{ width:13, height:13 } }))),
-            e('button',{ className:'btn green', disabled: !evoReady || !!anim, style:{ width:'100%', fontSize:11, padding:'11px' },
-              onClick:()=> ceremony('evolveByDuplicates','evolve') },
-              evoReady ? ('\u2728 Evolve'+(evoName?(' into '+evoName):'')+'!') : ('Collect '+(PM.EVO_COPIES-copies)+' more to evolve'))
+            evoReady && evoOptions.length>1 ? e(EvolutionChoice,{ inst, onChoose:(id)=> ceremony(()=>window.Store.evolveByDuplicates(iid, id),'evolve') }) : null,
+            e('button',{ className:'btn green', disabled: !evoReady || !!anim || evoOptions.length>1, style:{ width:'100%', fontSize:11, padding:'11px' },
+              onClick:()=> ceremony(()=>window.Store.evolveByDuplicates(iid),'evolve') },
+              evoReady
+                ? (evoOptions.length>1 ? '\u2728 Choose an evolution above' : ('\u2728 Evolve'+(evoName?(' into '+evoName):'')+'!'))
+                : ('Collect '+(PM.EVO_COPIES-copies)+' more to evolve'))
           )
         : e('div',{ className:'chip-card', style:{ padding:'10px 14px', marginBottom:10, fontFamily:"'Silkscreen'", fontSize:9, color:'var(--ink-faint)' } },
             '\u2714 Fully evolved \u2014 no further evolution'),
