@@ -267,6 +267,19 @@ button{ font-family:inherit; cursor:pointer; }
   font-size:14px; line-height:1.4; box-shadow:var(--shadow); }
 .data-path{ font-family:'VT323',monospace; font-size:17px; color:var(--ink); background:var(--cream); border:1px solid var(--card-line);
   border-radius:6px; padding:5px 8px; word-break:break-all; }
+/* online demo */
+a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
+.modal a:not(.btn){ color:var(--lav-deep); font-weight:600; }
+.demo-badge{ font-family:'Silkscreen',monospace; font-size:9px; text-transform:uppercase; letter-spacing:.4px;
+  color:#fff; background:var(--pink-deep); border:2px solid var(--wood-line); border-radius:6px; padding:3px 7px; }
+.demo-badge:hover{ filter:brightness(1.08); }
+.demo-notice{ width:560px; }
+.demo-notice p{ font-size:14px; line-height:1.5; color:var(--ink-soft); margin:0 0 12px; }
+.demo-warning{ padding:10px 14px; margin-bottom:12px; border-color:var(--pink-deep); background:var(--pink-lite); }
+.demo-warning-title{ font-family:'Silkscreen'; font-size:10px; color:#8a3b52; margin-bottom:6px; }
+.demo-warning ul{ margin:0; padding-left:18px; font-size:13px; line-height:1.5; color:var(--ink); }
+.demo-cmd{ font-family:'VT323',monospace; font-size:17px; line-height:1.3; color:#e3dcf2; background:#3a3147;
+  border:2px solid var(--lav-deep); border-radius:8px; padding:9px 12px; margin:0 0 14px; white-space:pre-wrap; word-break:break-all; }
 .boot-error{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:24px; background:#9cc6c2; }
 .boot-error .panel{ max-width:560px; }
 .boot-error p{ font-size:15px; line-height:1.5; color:var(--ink-soft); margin:0 0 16px; word-break:break-word; }

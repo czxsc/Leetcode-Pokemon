@@ -10,8 +10,10 @@
     "start": "vite --open",
     "dev": "vite",
     "build": "vite build",
+    "build:demo": "vite build --mode demo",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preview:demo": "vite preview --mode demo"
   },
   "dependencies": {
     "react": "^19.2.6",

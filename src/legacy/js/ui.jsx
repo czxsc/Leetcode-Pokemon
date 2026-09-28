@@ -79,7 +79,7 @@
     const title = s.state==='conflict' ? 'Stopped saving \u2014 your data was changed in another tab'
       : s.state==='error' ? s.error
       : s.mode==='disk' ? 'Progress is saved to '+s.location
-      : 'Progress is saved in this browser only \u2014 run the app with "npm run dev" to save it to disk';
+      : 'Demo: progress is saved in this browser only';
     return e('span',{ className:'save-dot '+(s.state==='saved' ? s.mode : 'bad'), title });
   }
 
@@ -98,11 +98,41 @@
     return null;
   }
 
-  function TopNav({ page, setPage }){
+  // ---- online demo (GitHub Pages build only) ----
+  const DEMO_SEEN_KEY = 'pokeleet:demo:welcome-seen';
+  function demoNoticeSeen(){ try{ return !!localStorage.getItem(DEMO_SEEN_KEY); }catch{ return false; } }
+
+  function DemoNotice({ onClose }){
+    const repo = window.AppConfig.repoUrl;
+    const folder = repo.split('/').pop() || 'Leetcode-Pokemon';
+    function close(){
+      try{ localStorage.setItem(DEMO_SEEN_KEY, '1'); }catch{ /* private window: show it again next time */ }
+      onClose();
+    }
+    return e('div',{ className:'modal-veil', style:{ zIndex:85 }, onClick:close },
+      e('div',{ className:'panel modal demo-notice', onClick:(ev)=>ev.stopPropagation() },
+        e('div',{ className:'panel-title' }, e('span',{className:'dot'}), 'Welcome to the Pok\u00e9Leet demo'),
+        e('p',{}, 'Pok\u00e9Leet is a gamified LeetCode tracker: log the problems you solve, paste in your solutions, and earn Shards to collect Pok\u00e9mon, build a team and battle in the Meadow.'),
+        e('div',{ className:'chip-card demo-warning' },
+          e('div',{ className:'demo-warning-title' }, '\u26a0 This online version is for demo purposes only'),
+          e('ul',{},
+            e('li',{}, 'Progress is saved in this browser only \u2014 clearing site data, a private window, or another browser or device starts over.'),
+            e('li',{}, 'Nothing is uploaded: there are no accounts, sync or backups here.'))),
+        e('p',{}, 'To use Pok\u00e9Leet for real, clone it from GitHub and run it on your computer. It saves everything to your own disk, including a folder of your solutions sorted by tag:'),
+        repo ? e('pre',{ className:'demo-cmd' }, `git clone ${repo}.git\ncd ${folder}\nnpm install\nnpm start`) : null,
+        e('div',{ style:{ display:'flex', gap:10, justifyContent:'flex-end', alignItems:'center' } },
+          repo ? e('a',{ className:'btn', href:repo, target:'_blank', rel:'noopener noreferrer' }, 'View on GitHub \u2197') : null,
+          e('button',{ className:'btn green', onClick:close }, 'Try the demo'))
+      )
+    );
+  }
+
+  function TopNav({ page, setPage, onDemo }){
     return e('div',{ style:{ display:'flex', alignItems:'stretch', gap:12, marginBottom:14 } },
       e('div',{ className:'wood-sign', style:{ display:'flex', alignItems:'center', gap:10, padding:'8px 16px' } },
         e(Pokeball,{ size:26 }),
         e('div',{ className:'pixel-font', style:{ fontSize:15, lineHeight:1, color:'#5d4026' } }, 'Pok\u00e9Leet'),
+        window.AppConfig.demo ? e('button',{ className:'demo-badge', title:'Online demo \u2014 click for details', onClick:onDemo }, 'Demo') : null,
         e(SaveStatus)
       ),
       e('nav',{ className:'nav', style:{ flex:1 } },
@@ -191,5 +221,5 @@
   }
 
   Object.assign(window, { Pokeball, Shard, Coin, TypeTag, RarityTag, TopNav, CodeBlock, SaveBanner,
-    usePersistenceStatus, NAV_TABS:TABS });
+    DemoNotice, demoNoticeSeen, usePersistenceStatus, NAV_TABS:TABS });
 })();

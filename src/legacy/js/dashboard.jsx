@@ -143,7 +143,7 @@
     const where = !code.trim()
       ? 'No solution yet? Save it anyway and it stays on your list as a to-do.'
       : window.Persistence.mode!=='disk'
-        ? 'Solution files are written to disk when the app runs with its local server (npm run dev).'
+        ? 'In the full version (clone it from GitHub), your solution is also saved as a file in a folder for each tag.'
         : ['Your solution will be saved to ', e('b',{ key:'p' }, 'solutions/'+folders[0]+'/'+fileName),
            folders.length>1 ? ` and ${folders.length-1} more tag folder${folders.length===2?'':'s'}.` : '.'];
 
@@ -237,7 +237,7 @@
         e('div',{ className:'chip-card', style:{ padding:'12px 14px', marginBottom:14 } },
           e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:11, color: status.state==='saved'?'var(--sage-deep)':'var(--hard)', marginBottom:8 } },
             status.state!=='saved' ? '✖ Not saving right now'
-              : disk ? '✔ Saved to disk automatically' : '✔ Saved in this browser'),
+              : disk ? '✔ Saved to disk automatically' : '✔ Saved in this browser (demo)'),
           disk
             ? e('div',{},
                 e('div',{ className:'data-path' }, status.location),
@@ -246,8 +246,9 @@
                   e('b',{},'solutions/<tag>/'), ' — one folder per tag — and a daily copy of your data is kept in ',
                   e('b',{},'backups/'), '.'))
             : e('div',{ style:{ ...hintStyle, marginBottom:0 } },
-                'No local server is running, so progress lives in this browser only. Start the app with ',
-                e('b',{},'npm run dev'), ' to save progress and solution files to disk.'),
+                'This is the online demo, so your progress is kept in this browser only. To save progress and a folder of your solutions on your own computer, clone PokéLeet from ',
+                window.AppConfig.repoUrl ? e('a',{ href:window.AppConfig.repoUrl, target:'_blank', rel:'noopener noreferrer' }, 'GitHub') : 'GitHub',
+                ' and run it with ', e('b',{},'npm start'), '.'),
           saved ? e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)', marginTop:8 } }, 'last saved '+saved) : null,
           status.error ? e('div',{ style:{ fontSize:13, color:'var(--hard)', marginTop:8 } }, status.error) : null),
         e('div',{ style:hintStyle }, 'Backups are a single JSON file you can keep anywhere or import on another computer.'),

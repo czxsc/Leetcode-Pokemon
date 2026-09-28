@@ -1,7 +1,7 @@
 /* =====================================================================
    Store v6 — game state + problem library + pub/sub.
    Every change is handed to window.Persistence, which saves it to disk
-   (data/) or, without the local server, to localStorage.
+   (data/) or, in the online demo, to this browser's localStorage.
    Problems are created by the player (title, difficulty, tags, pasted
    solution); a problem counts as solved once it has a solution.
    Shiny + mega/gmax forms (unlock + switch) + evolution-by-duplicate,
@@ -355,6 +355,18 @@
 
   // Another tab took over the data; stop the engine so this one goes quiet.
   Persistence.subscribe(()=>{ if(Persistence.status().state==='conflict') stopEngine(); });
+  // Coming back to this tab: take what another tab or browser saved meanwhile.
+  Persistence.onRemoteChange((docs)=>{
+    const cur = Persistence.splitState(state);
+    stopEngine(); Store.dmgEvents=[];
+    state = buildState(docs.progress || cur.progress, docs.library || cur.library);
+    Persistence.adopt(state);
+    subs.forEach(fn=>fn());
+  });
+  // The meadow only runs in a visible tab, so two open tabs don't both play
+  // (and save) at once. Time spent hidden is paid out as "while away".
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') stopEngine(); });
+  Persistence.onResume(()=> startEngine());
 
   // ==================== GLOBAL MEADOW ENGINE =========================
   let engineTimer = null;
@@ -433,7 +445,7 @@
   }
 
   function startEngine(){
-    if(engineTimer || Persistence.status().state==='conflict') return;
+    if(engineTimer || Persistence.status().state==='conflict' || document.visibilityState==='hidden') return;
     const m = state.meadow;
     if(m.patrolling && m.lastActive){
       const awaySec = Math.min(4*3600, (Date.now()-m.lastActive)/1000);

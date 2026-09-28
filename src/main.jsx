@@ -9,6 +9,11 @@ import { openPersistence } from './persistence.js'
 import pokeAvatar from './assets/PokeAvatar.png'
 import './theme.css'
 
+// The GitHub Pages demo is built with `--mode demo` (see .env.demo).
+window.AppConfig = {
+  demo: import.meta.env.MODE === 'demo',
+  repoUrl: import.meta.env.VITE_REPO_URL || '',
+}
 window.React = React
 window.ReactDOM = { createRoot }
 window.Catalog = Catalog
@@ -21,7 +26,7 @@ const root = createRoot(document.getElementById('root'))
 async function boot() {
   try {
     // The store reads its starting state from here, so load it first.
-    window.Persistence = await openPersistence()
+    window.Persistence = await openPersistence({ demo: window.AppConfig.demo })
   } catch (err) {
     root.render(<StorageError message={err.message} />)
     return
