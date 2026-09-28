@@ -27,6 +27,7 @@ async function boot() {
   try {
     // The store reads its starting state from here, so load it first.
     window.Persistence = await openPersistence({ demo: window.AppConfig.demo })
+    if (window.AppConfig.demo) window.DemoSeed = await import('./demo-seed.js')
   } catch (err) {
     root.render(<StorageError message={err.message} />)
     return

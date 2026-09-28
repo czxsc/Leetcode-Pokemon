@@ -511,7 +511,7 @@
 
   function Dashboard(){
     const [sel, setSel] = useState(ALL);
-    return e('div',{ style:{ display:'grid', gridTemplateColumns:'258px 1fr 318px', gap:14, height:'100%', minHeight:0 } },
+    return e('div',{ style:{ display:'grid', gridTemplateColumns:'258px minmax(0,1fr) 318px', gap:14, height:'100%', minHeight:0 } },
       e(TagMenu,{ sel, setSel }),
       e(ProblemList,{ tagId:sel }),
       e(TrainerCard)

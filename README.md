@@ -94,7 +94,8 @@ versions is imported automatically on first launch.
 ## The online demo
 
 `npm run build:demo` builds a version that needs no server. It saves to the
-visitor's browser (localStorage) and shows a "demo only" notice linking back to
+visitor's browser (localStorage), starts them with a few example problems and
+some Coins, and shows a "demo only" notice linking back to
 this repo. `.github/workflows/deploy-demo.yml` publishes it to GitHub Pages on
 every push to `main`.
 

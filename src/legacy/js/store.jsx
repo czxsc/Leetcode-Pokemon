@@ -117,6 +117,8 @@
   // First launch on this storage: pick up a save from the old localStorage-only version.
   function initialState(){
     let { progress, library } = Persistence.initial;
+    // online demo, first visit: start with example problems and some Coins
+    if(!progress && !library && window.DemoSeed) ({ progress, library } = window.DemoSeed.createDemoData());
     if(!progress){
       const legacy = window.LegacyImport.readLegacyState();
       if(legacy) ({ progress, library } = window.LegacyImport.importLegacyState(legacy, library || {}));
