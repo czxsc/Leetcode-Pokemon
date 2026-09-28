@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# PokéLeet user data (progress, problems, generated solution folders, backups).
+# Each person who clones this repo gets their own; point POKELEET_DATA_DIR
+# somewhere else (e.g. in .env.local) to keep it outside the repo.
+data/

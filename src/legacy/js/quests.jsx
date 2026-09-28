@@ -5,13 +5,14 @@
 (function(){
   const e = React.createElement;
 
+  const claimedToday = (s)=> s.problems.filter(p=> p.claimedAt===window.Store.TODAY).length;
   const QUESTS = [
     { id:'login',  name:'Log In',            desc:'Open Pok\u00e9Leet today.',              reward:50,  goal:1,
       progress:()=>1 },
     { id:'solve1', name:'Solve 1 Problem',   desc:'Claim shards on any problem.',           reward:100, goal:1,
-      progress:(s)=>Object.values(s.claimDates||{}).filter(d=>d===window.Store.TODAY).length },
+      progress:claimedToday },
     { id:'solve3', name:'Solve 3 Problems',  desc:'Claim shards on three problems.',        reward:250, goal:3,
-      progress:(s)=>Object.values(s.claimDates||{}).filter(d=>d===window.Store.TODAY).length },
+      progress:claimedToday },
     { id:'refresh',name:'Daily Refresher',   desc:'Finish an Active Recall quiz.',          reward:150, goal:1,
       progress:(s)=>s.recallToday?1:0 },
   ];

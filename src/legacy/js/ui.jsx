@@ -67,11 +67,43 @@
     );
   }
 
+  // ---- save status (window.Persistence) ----
+  function usePersistenceStatus(){
+    const [, force] = React.useReducer(x=>x+1, 0);
+    React.useEffect(()=> window.Persistence.subscribe(force), []);
+    return window.Persistence.status();
+  }
+
+  function SaveStatus(){
+    const s = usePersistenceStatus();
+    const title = s.state==='conflict' ? 'Stopped saving \u2014 your data was changed in another tab'
+      : s.state==='error' ? s.error
+      : s.mode==='disk' ? 'Progress is saved to '+s.location
+      : 'Progress is saved in this browser only \u2014 run the app with "npm run dev" to save it to disk';
+    return e('span',{ className:'save-dot '+(s.state==='saved' ? s.mode : 'bad'), title });
+  }
+
+  // Blocks the app if another tab took over the data; warns if saving fails.
+  function SaveBanner(){
+    const s = usePersistenceStatus();
+    if(s.state==='conflict'){
+      return e('div',{ className:'modal-veil', style:{ zIndex:90 } },
+        e('div',{ className:'panel modal', style:{ width:460, textAlign:'center' } },
+          e('div',{ className:'panel-title', style:{ justifyContent:'center' } }, e('span',{className:'dot'}), 'Opened somewhere else'),
+          e('div',{ style:{ fontSize:14, color:'var(--ink-soft)', lineHeight:1.5, marginBottom:16 } },
+            'Your Pok\u00e9Leet data was saved from another tab or window, so this one stopped saving to avoid overwriting it. Reload to continue with the latest progress.'),
+          e('button',{ className:'btn green', onClick:()=>window.location.reload() }, 'Reload')));
+    }
+    if(s.state==='error') return e('div',{ className:'save-banner' }, '\u26a0 '+s.error);
+    return null;
+  }
+
   function TopNav({ page, setPage }){
     return e('div',{ style:{ display:'flex', alignItems:'stretch', gap:12, marginBottom:14 } },
       e('div',{ className:'wood-sign', style:{ display:'flex', alignItems:'center', gap:10, padding:'8px 16px' } },
         e(Pokeball,{ size:26 }),
-        e('div',{ className:'pixel-font', style:{ fontSize:15, lineHeight:1, color:'#5d4026' } }, 'Pok\u00e9Leet')
+        e('div',{ className:'pixel-font', style:{ fontSize:15, lineHeight:1, color:'#5d4026' } }, 'Pok\u00e9Leet'),
+        e(SaveStatus)
       ),
       e('nav',{ className:'nav', style:{ flex:1 } },
         TABS.map(t=> e('button',{ key:t.id, className:'nav-tab'+(page===t.id?' active':''),
@@ -83,30 +115,81 @@
     );
   }
 
-  // ---- naive python syntax highlighter ----
-  const KW = new Set(('class def return if elif else for while in not and or is None True False '+
-    'self import from as with try except lambda yield break continue global pass raise').split(' '));
-  function highlight(code){
-    const esc = s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const lines = code.split('\n').map(line=>{
-      // comment
-      const ci = line.indexOf('#');
-      let comment='';
-      let main=line;
-      if(ci>=0 && !/['"].*#/.test(line)){ comment=line.slice(ci); main=line.slice(0,ci); }
-      let out = esc(main)
-        .replace(/(['"])(?:(?=(\\?))\2.)*?\1/g, m=>`<span class="tok-str">${m}</span>`)
-        .replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="tok-num">$1</span>')
-        .replace(/\b([A-Za-z_][A-Za-z0-9_]*)\b/g, (m)=> KW.has(m)?`<span class="tok-kw">${m}</span>`:m);
-      if(comment) out += `<span class="tok-com">${esc(comment)}</span>`;
-      return out;
-    });
-    return lines.join('\n');
+  // ---- small multi-language syntax highlighter ----
+  // Single left-to-right scan: comments, strings, numbers, keywords, and the
+  // name after def/class/function/... Anything else is escaped plain text.
+  const words = (s)=> new Set(s.split(' '));
+  const KEYWORDS = {
+    python: words('and as assert async await break class continue def del elif else except False finally for from global if import in is lambda None nonlocal not or pass raise return self True try while with yield'),
+    clike: words('abstract auto bool boolean break byte case catch char class const constexpr continue default defer delete do double else enum explicit export extends extern false final finally float fn for from func function go goto if impl implements import in inline instanceof int interface internal let long loop match mod mut namespace new nil null of operator override package private protected pub public range readonly return self Self short signed sizeof static struct super switch template this throw throws trait true try type typedef typeof undefined union unsigned use using val var virtual void volatile when where while yield async await'),
+    ruby: words('alias and begin break case class def do else elsif end ensure false for if in module next nil not or redo rescue retry return self super then true undef unless until when while yield'),
+    sql: words('select from where and or not insert into values update set delete create table join left right inner outer full cross on group by order having limit offset as distinct union all case when then else end null is in exists count sum avg min max with over partition rank dense_rank row_number between like asc desc if ifnull coalesce'),
+  };
+  const SYNTAX = {
+    python: { kw:'python', line:'#', quotes:'\'"', triple:true },
+    ruby:   { kw:'ruby', line:'#', quotes:'\'"' },
+    sql:    { kw:'sql', line:'--', block:['/*','*/'], quotes:'\'"', nocase:true },
+    other:  { kw:null, quotes:'' },
+  };
+  const CLIKE = { kw:'clike', line:'//', block:['/*','*/'], quotes:'\'"`' };
+  const DEFINERS = words('def class function fn func struct interface trait enum');
+  const NUM = /\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?[a-zA-Z]*/y;
+  const WORD = /[A-Za-z_$][\w$]*/y;
+  const esc = (s)=> s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  function highlight(code, language){
+    const cfg = SYNTAX[language] || CLIKE;
+    const kw = cfg.kw ? KEYWORDS[cfg.kw] : null;
+    const n = code.length;
+    const tok = (cls, text)=> '<span class="tok-'+cls+'">'+esc(text)+'</span>';
+    let out = '', i = 0, plain = '', defining = false;
+    const flush = ()=>{ if(plain){ out += esc(plain); plain = ''; } };
+    while(i < n){
+      const ch = code[i];
+      if(cfg.line && code.startsWith(cfg.line, i)){
+        let j = code.indexOf('\n', i); if(j < 0) j = n;
+        flush(); out += tok('com', code.slice(i, j)); i = j; continue;
+      }
+      if(cfg.block && code.startsWith(cfg.block[0], i)){
+        let j = code.indexOf(cfg.block[1], i + cfg.block[0].length);
+        j = j < 0 ? n : j + cfg.block[1].length;
+        flush(); out += tok('com', code.slice(i, j)); i = j; continue;
+      }
+      if(cfg.quotes.includes(ch)){
+        let j;
+        if(cfg.triple && code.startsWith(ch+ch+ch, i)){
+          j = code.indexOf(ch+ch+ch, i + 3); j = j < 0 ? n : j + 3;
+        } else {
+          j = i + 1;
+          while(j < n && code[j] !== ch && (ch === '`' || code[j] !== '\n')){ if(code[j] === '\\') j++; j++; }
+          j = Math.min(n, j + 1);
+        }
+        flush(); out += tok('str', code.slice(i, j)); i = j; continue;
+      }
+      if(kw && /[0-9]/.test(ch) && !/[\w$]/.test(code[i-1] || '')){
+        NUM.lastIndex = i; const m = NUM.exec(code);
+        flush(); out += tok('num', m[0]); i += m[0].length; continue;
+      }
+      if(kw && /[A-Za-z_$]/.test(ch)){
+        WORD.lastIndex = i; const w = WORD.exec(code)[0];
+        const key = cfg.nocase ? w.toLowerCase() : w;
+        flush();
+        if(kw.has(key)){ out += tok('kw', w); defining = DEFINERS.has(key); }
+        else if(defining){ out += tok('def', w); defining = false; }
+        else out += esc(w);
+        i += w.length; continue;
+      }
+      if(!/\s/.test(ch)) defining = false;
+      plain += ch; i++;
+    }
+    flush();
+    return out;
   }
 
-  function CodeBlock({ code }){
-    return e('pre',{ dangerouslySetInnerHTML:{ __html: highlight(code) } });
+  function CodeBlock({ code, language }){
+    return e('pre',{ dangerouslySetInnerHTML:{ __html: highlight(code, language || 'python') } });
   }
 
-  Object.assign(window, { Pokeball, Shard, Coin, TypeTag, RarityTag, TopNav, CodeBlock, NAV_TABS:TABS });
+  Object.assign(window, { Pokeball, Shard, Coin, TypeTag, RarityTag, TopNav, CodeBlock, SaveBanner,
+    usePersistenceStatus, NAV_TABS:TABS });
 })();

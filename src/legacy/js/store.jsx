@@ -1,19 +1,24 @@
 /* =====================================================================
-   Store v4 — localStorage game state + pub/sub.
+   Store v6 — game state + problem library + pub/sub.
+   Every change is handed to window.Persistence, which saves it to disk
+   (data/) or, without the local server, to localStorage.
+   Problems are created by the player (title, difficulty, tags, pasted
+   solution); a problem counts as solved once it has a solution.
    Shiny + mega/gmax forms (unlock + switch) + evolution-by-duplicate,
    tiered pity (epic@15 / legendary@40 / chosen-target@100), tiered
    meadow combat with per-mon damage events, dated solve log.
 ===================================================================== */
 (function(){
-  const KEY = 'pokeleet_v5';
-  const BACKUP_VERSION = 1;
-  const { OWNED, TEAM } = window.DATA;
   const PM = window.PixelMon;
   const RARITY = PM.RARITY;
   const CAP = window.DATA.LEVEL_CAP;
   const expToNext = window.DATA.expToNext;
+  const Catalog = window.Catalog;
+  const Persistence = window.Persistence;
+  const BACKUP_TYPE = 'pokeleet-backup', BACKUP_VERSION = 2;
   function getToday(){ return window.DateUtil.todayLocal(); }
   function daysAgo(n, base){ return window.DateUtil.daysAgo(n, base || getToday()); }
+  const isDate = (d)=> typeof d==='string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 
   // pity thresholds
   const EPIC_PITY = 15, LEGEND_PITY = 40, LEGEND_TARGET_PITY = 100, EPIC_TARGET_PITY = 60;
@@ -30,16 +35,6 @@
     };
   }
 
-  // Give evolvable mons a few duplicate copies so the evolution flow is live.
-  function applyDemoCopies(owned, team){
-    return owned.map(o=>{
-      const sp = PM.byId(o.sp);
-      const canEvo = sp && (sp.evo || sp.id==='eevee');
-      const copies = (o.copies!=null && o.copies>0) ? o.copies
-        : !canEvo ? (o.copies||0) : (team.includes(o.iid) ? PM.EVO_COPIES : 3);
-      return { ...o, copies };
-    });
-  }
   // ensure every instance has an `unlocked` form set (derive from any legacy form)
   function migrateForms(owned){
     return owned.map(o=>{
@@ -47,21 +42,6 @@
       if(o.form && !u[o.form]) u = { ...u, [o.form]:true };
       return { ...o, unlocked:u };
     });
-  }
-
-  // Seed dated solves for the statically-solved problems so the training log
-  // is populated and accurate. Dense recent days -> nice current streak.
-  function seedSolveDates(){
-    const map = {};
-    const solved = [];
-    Object.values(window.DATA.PROBLEMS).forEach(arr=> arr.forEach(p=>{ if(p.solved) solved.push(p.id); }));
-    solved.sort();
-    solved.forEach((id,i)=>{
-      let off = i<48 ? Math.floor(i/2) : 24 + (i-48)*3;   // 2/day for ~24 recent days, then spread
-      if(off>117) off = 117;
-      map[id] = daysAgo(off);
-    });
-    return map;
   }
 
   // A brand-new “starter” account: 5000 gems, six starter friends
@@ -74,58 +54,81 @@
     ];
   }
 
-  function seed(){
+  function seedProgress(){
     const owned = starterOwned();
     return {
+      trainer: { name:'Trainer' }, createdAt: getToday(), preferredLanguage: 'python',
       shards: 5000, coins: 0, megaStones: 0, gmaxStones: 0,
-      claims: {}, solved: {}, solveDates: {},
-      claimDates: {},
-      owned: migrateForms(owned),
-      team: owned.map(o=>o.iid), demoEvo: true,
+      owned, team: owned.map(o=>o.iid),
       quests: {}, recallBest: 0, recallToday: false,
       pity: 0, epicPity: 0, totalPulls: 0,
       guaranteedLegendary: null, guaranteedEpic: null,
       legendaryTargetPity: 0, epicTargetPityCount: 0,
-      customProblems: {}, customCategories: [],
-      repo: { owner:'', name:'', branch:'main' },
-      syncedPaths: {}, lastSync: 0,
       meadow: { patrolling:false, coinsToday:0, kills:0, boss:null, nextSpawnAt:0, lastActive:0 },
-      lastDay: getToday(), v: 5,
+      lastDay: getToday(), v: 6,
     };
   }
 
-  let state = load();
-  const subs = new Set();
-  function load(){
-    try{ const raw = localStorage.getItem(KEY);
-      if(raw){ const s = JSON.parse(raw); if(s && s.v===5){
-        const merged = Object.assign(seed(), s,
-          { meadow: Object.assign(seed().meadow, s.meadow||{}), repo: Object.assign(seed().repo, s.repo||{}) });
-        // non-destructive migrations for older saves
-        if(typeof merged.megaStones!=='number') merged.megaStones = 2;
-        if(typeof merged.gmaxStones!=='number') merged.gmaxStones = 1;
-        if(typeof merged.epicPity!=='number') merged.epicPity = 0;
-        if(typeof merged.targetPity!=='number') merged.targetPity = 0;
-        if(!('guaranteedLegendary' in merged)) merged.guaranteedLegendary = merged.guaranteedTarget || null;
-        if(!('guaranteedEpic' in merged)) merged.guaranteedEpic = null;
-        if(typeof merged.legendaryTargetPity!=='number') merged.legendaryTargetPity = merged.targetPity || 0;
-        if(typeof merged.epicTargetPityCount!=='number') merged.epicTargetPityCount = 0;
-        if(!merged.claimDates) merged.claimDates = {};
-        if(typeof merged.recallToday!=='boolean') merged.recallToday = false;
-        if(!s.demoEvo){ merged.owned = applyDemoCopies(merged.owned, merged.team); merged.demoEvo = true; }
-        merged.owned = migrateForms(merged.owned);
-        if(!s.solveDates || !Object.keys(s.solveDates).length) merged.solveDates = seedSolveDates();
-        delete merged.fetchedCode;
-        delete merged.guaranteedTarget;
-        delete merged.targetPity;
-        return rollDailyState(merged);
-      } }
-    }catch(e){}
-    return rollDailyState(seed());
+  // Fill in anything missing from a saved (or imported) progress document.
+  function normalizeProgress(saved){
+    const seed = seedProgress();
+    const p = Object.assign(seed, saved, {
+      trainer: { ...seed.trainer, ...(saved.trainer||{}) },
+      meadow: { ...seed.meadow, ...(saved.meadow||{}) },
+      v: 6,
+    });
+    delete p.problems; delete p.customTags;
+    p.owned = migrateForms(Array.isArray(p.owned) ? p.owned : []);
+    p.team = (Array.isArray(p.team) ? p.team : []).filter(iid=> p.owned.some(o=>o.iid===iid)).slice(0,6);
+    return p;
   }
-  function persist(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
-  function emit(){ persist(); subs.forEach(fn=>fn()); }
-  function set(next){ state = next; emit(); }
+
+  function normalizeProblem(p){
+    const difficulty = Catalog.DIFFICULTIES.includes(p.difficulty) ? p.difficulty : 'Medium';
+    let url = Catalog.oneLine(p.url);
+    if(url && !/^https?:\/\//i.test(url)) url = 'https://'+url;
+    return {
+      id: String(p.id),
+      title: Catalog.oneLine(p.title).slice(0,120) || 'Untitled',
+      difficulty,
+      tags: [...new Set((Array.isArray(p.tags)?p.tags:[]).filter(t=> typeof t==='string' && t))],
+      language: Catalog.languageById(p.language).id,
+      code: typeof p.code==='string' ? p.code.replace(/\r\n?/g,'\n') : '',
+      url,
+      createdAt: p.createdAt || new Date().toISOString(),
+      solvedAt: isDate(p.solvedAt) ? p.solvedAt : null,
+      claimed: !!p.claimed,
+      claimedAt: isDate(p.claimedAt) ? p.claimedAt : null,
+    };
+  }
+
+  function normalizeLibrary(saved){
+    const customTags = Catalog.tagList(saved.customTags).filter(t=>t.custom).map(t=>({ id:t.id, name:t.name }));
+    const problems = (Array.isArray(saved.problems)?saved.problems:[])
+      .filter(p=> p && p.id!=null && typeof p.title==='string')
+      .map(normalizeProblem);
+    return { problems, customTags };
+  }
+
+  function buildState(progress, library){
+    return rollDailyState({ ...normalizeProgress(progress||{}), ...normalizeLibrary(library||{}) });
+  }
+
+  // First launch on this storage: pick up a save from the old localStorage-only version.
+  function initialState(){
+    let { progress, library } = Persistence.initial;
+    if(!progress){
+      const legacy = window.LegacyImport.readLegacyState();
+      if(legacy) ({ progress, library } = window.LegacyImport.importLegacyState(legacy, library || {}));
+    }
+    return buildState(progress, library);
+  }
+
+  let state = initialState();
+  const subs = new Set();
+  function emit(){ Persistence.save(state); subs.forEach(fn=>fn()); }
+  function set(next){ state = rollDailyState(next); emit(); }
+  Persistence.save(state);   // creates the files on first launch / stores any migration
 
   function addExpToInst(inst, amount){
     let { level, exp } = inst; exp += amount;
@@ -138,23 +141,11 @@
     return { ...inst, level, exp: level>=CAP ? 0 : inst.exp };
   }
   function mapExp(owned, iids, amount){ const t=new Set(iids); return owned.map(o=> t.has(o.iid)?addExpToInst(o,amount):o); }
+  function newId(){ return 'p-'+Date.now().toString(36)+Math.floor(Math.random()*1296).toString(36); }
 
   const Store = {
     get(){ return state; },
     subscribe(fn){ subs.add(fn); return ()=>subs.delete(fn); },
-    reset(){ stopEngine(); Store.dmgEvents=[]; set(seed()); },
-
-    claimSolve(problemId, shardAmt){
-      if(state.claims[problemId]) return;
-      const solveDates = { ...state.solveDates };
-      const claimDates = { ...state.claimDates };
-      const today = getToday();
-      if(!solveDates[problemId]) solveDates[problemId] = getToday();
-      claimDates[problemId] = today;
-      set({ ...state, claims:{ ...state.claims, [problemId]:true }, solveDates,
-        claimDates,
-        shards: state.shards + shardAmt, owned: mapExp(state.owned, state.team, 1) });
-    },
 
     addShards(n){ set({ ...state, shards: state.shards+n }); },
     spendShards(n){ if(state.shards<n) return false; set({ ...state, shards: state.shards-n }); return true; },
@@ -168,6 +159,9 @@
       return inst;
     },
     setTeam(team){ set({ ...state, team: team.slice(0,6) }); },
+    setTrainerName(name){
+      set({ ...state, trainer:{ ...state.trainer, name: Catalog.oneLine(name).slice(0,24) || 'Trainer' } });
+    },
 
     // ---- GACHA (cost deducted by caller) ----
     setLegendaryTarget(spId){ set({ ...state, guaranteedLegendary: spId||null, legendaryTargetPity: 0 }); },
@@ -268,75 +262,68 @@
     grantQuest(id, shards){ if(state.quests[id]) return; set({ ...state, quests:{ ...state.quests,[id]:true }, shards:state.shards+shards }); },
     setRecallBest(n){ set({ ...state, recallBest: Math.max(state.recallBest, n), recallToday:true }); },
 
-    // ---- PROBLEMS (custom + sync + dated solves) ----
-    // ---- CATEGORIES (custom) ----
-    addCategory(name){
-      const slug = (name||'').toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,16) || 'set';
-      const id = 'cat-'+slug+'-'+Date.now().toString(36);
-      const list = [...(state.customCategories||[]), { id, name: name.trim(), total:0, custom:true }];
-      set({ ...state, customCategories:list });
-      return id;
+    // ---- PROBLEMS ----
+    // fields: { title, difficulty, tags, language, url, code }
+    createProblem(fields){
+      const p = normalizeProblem({ ...fields, id:newId(), createdAt:new Date().toISOString() });
+      if(p.code.trim()) p.solvedAt = getToday();
+      set({ ...state, problems:[...state.problems, p], preferredLanguage:p.language });
+      return p.id;
     },
-    removeCategory(id){
-      const customProblems = { ...state.customProblems }; delete customProblems[id];
-      set({ ...state, customCategories:(state.customCategories||[]).filter(c=>c.id!==id), customProblems });
+    updateProblem(id, fields){
+      const prev = state.problems.find(p=>p.id===id); if(!prev) return;
+      const next = normalizeProblem({ ...prev, ...fields, id, createdAt:prev.createdAt });
+      const hadCode = !!prev.code.trim(), hasCode = !!next.code.trim();
+      if(hasCode && !next.solvedAt) next.solvedAt = getToday();
+      if(hadCode && !hasCode) next.solvedAt = null;       // solution removed -> back to to-do
+      set({ ...state, problems: state.problems.map(p=> p.id===id?next:p), preferredLanguage:next.language });
+    },
+    deleteProblem(id){ set({ ...state, problems: state.problems.filter(p=>p.id!==id) }); },
+    claimProblem(id){
+      const p = state.problems.find(x=>x.id===id);
+      if(!p || p.claimed || !p.solvedAt) return;
+      const amount = window.DATA.SHARD_BY_DIFF[p.difficulty] || 0;
+      set({ ...state, shards: state.shards+amount, owned: mapExp(state.owned, state.team, 1),
+        problems: state.problems.map(x=> x.id===id?{ ...x, claimed:true, claimedAt:getToday() }:x) });
+    },
+    setSolveDate(id, date){
+      if(!isDate(date)) return;
+      set({ ...state, problems: state.problems.map(p=> p.id===id && p.solvedAt?{ ...p, solvedAt:date }:p) });
     },
 
-    addProblem(catId, name, diff){
-      const id = 'cust-'+catId+'-'+Date.now().toString(36);
-      const list = state.customProblems[catId] ? state.customProblems[catId].slice() : [];
-      list.push({ id, name, diff, cat:catId, code:'' });
-      set({ ...state, customProblems:{ ...state.customProblems, [catId]:list } });
+    // ---- TAGS (defaults come from the catalog; custom ones are saved) ----
+    addTag(name){
+      const clean = Catalog.oneLine(name).slice(0,40);
+      const id = Catalog.slugify(clean, 40);
+      if(!id) return null;
+      if(!tags().some(t=>t.id===id)) set({ ...state, customTags:[...state.customTags, { id, name:clean }] });
       return id;
     },
-    removeProblem(catId, pid){
-      const list = (state.customProblems[catId]||[]).filter(p=>p.id!==pid);
-      const solved = { ...state.solved }; delete solved[pid];
-      const solveDates = { ...state.solveDates }; delete solveDates[pid];
-      set({ ...state, customProblems:{ ...state.customProblems, [catId]:list }, solved, solveDates });
+    removeTag(id){
+      if(!state.customTags.some(t=>t.id===id)) return;
+      set({ ...state, customTags: state.customTags.filter(t=>t.id!==id),
+        problems: state.problems.map(p=> p.tags.includes(id)?{ ...p, tags:p.tags.filter(t=>t!==id) }:p) });
     },
-    setSolved(pid, val){
-      const solved = { ...state.solved }; const solveDates = { ...state.solveDates };
-      if(val){ solved[pid]=true; if(!solveDates[pid]) solveDates[pid]=getToday(); }
-      else { delete solved[pid]; delete solveDates[pid]; }
-      set({ ...state, solved, solveDates });
-    },
-    setSolveDate(pid, date){
-      const solveDates = { ...state.solveDates };
-      if(date) solveDates[pid] = date; else delete solveDates[pid];
-      set({ ...state, solveDates });
-    },
-    setRepo(owner,name,branch){ set({ ...state, repo:{ owner, name, branch:branch||'main' } }); },
-    applySync(solvedIds, paths){
-      const solved = { ...state.solved }; const solveDates = { ...state.solveDates };
-      const today = getToday();
-      solvedIds.forEach(id=>{
-        solved[id] = true;
-        if(!solveDates[id]) solveDates[id] = today;
-      });
-      set({ ...state, solved, solveDates,
-        syncedPaths:{ ...state.syncedPaths, ...paths },
-        lastDay: today,
-        lastSync:Date.now() });
-    },
+
+    // ---- BACKUPS ----
     exportData(){
-      return JSON.stringify({
-        type:'pokeleet-backup',
-        version:BACKUP_VERSION,
-        exportedAt:new Date().toISOString(),
-        state,
-      }, null, 2);
+      const { progress, library } = Persistence.splitState(state);
+      return JSON.stringify({ type:BACKUP_TYPE, version:BACKUP_VERSION, exportedAt:new Date().toISOString(), progress, library }, null, 2);
     },
     importData(raw){
       let parsed;
-      try{ parsed = JSON.parse(raw); }catch(e){ throw new Error('Backup file is not valid JSON.'); }
-      const nextState = parsed && parsed.type==='pokeleet-backup' ? parsed.state : parsed;
-      if(!nextState || nextState.v !== 5) throw new Error('Backup format is not supported by this version.');
-      const merged = Object.assign(seed(), nextState,
-        { meadow: Object.assign(seed().meadow, nextState.meadow||{}), repo: Object.assign(seed().repo, nextState.repo||{}) });
-      merged.owned = migrateForms(merged.owned);
-      delete merged.fetchedCode;
-      set(rollDailyState(merged));
+      try{ parsed = JSON.parse(raw); }catch(err){ throw new Error('Backup file is not valid JSON.', { cause:err }); }
+      let progress, library;
+      if(parsed && parsed.type===BACKUP_TYPE && parsed.version===BACKUP_VERSION && parsed.progress && parsed.library){
+        ({ progress, library } = parsed);
+      } else {
+        // backups from the old localStorage-only version
+        const legacy = parsed && parsed.type===BACKUP_TYPE ? parsed.state : parsed;
+        if(!window.LegacyImport.isLegacyState(legacy)) throw new Error('Backup format is not supported by this version.');
+        ({ progress, library } = window.LegacyImport.importLegacyState(legacy, Persistence.splitState(state).library));
+      }
+      stopEngine(); Store.dmgEvents=[];
+      set(buildState(progress, library));
     },
 
     // ---- MEADOW control ----
@@ -347,17 +334,27 @@
   };
 
   // ---- live problem helpers ----
-  function problemsFor(catId){ return (window.DATA.PROBLEMS[catId]||[]).concat(state.customProblems[catId]||[]); }
-  function categories(){ return window.DATA.CATEGORIES.concat(state.customCategories||[]); }
-  function allProblemsLive(){ return categories().flatMap(c=> problemsFor(c.id)); }
-  Store.categories = categories;
-  function isSolved(p){ return !!(p.solved || state.solved[p.id]); }
-  function codeFor(p){
-    const path = state.syncedPaths[p.id];
-    return (path && window.LocalSolutionSync.resolveCode(path)) || p.code || '';
+  function tags(){ return Catalog.tagList(state.customTags); }
+  function isSolved(p){ return !!p.solvedAt; }
+  function solveDate(p){ return p.solvedAt || null; }
+
+  // where each solved problem's code is written: problemId -> ['arrays/two-sum.py', ...]
+  let planInput = null, planCache = new Map();
+  function solutionPaths(id){
+    if(!planInput || planInput.problems!==state.problems || planInput.customTags!==state.customTags){
+      planInput = { problems:state.problems, customTags:state.customTags };
+      planCache = new Map();
+      Catalog.solutionPlan(planInput).forEach(f=>{
+        if(!planCache.has(f.problemId)) planCache.set(f.problemId, []);
+        planCache.get(f.problemId).push(f.path);
+      });
+    }
+    return planCache.get(id) || [];
   }
-  function solveDate(p){ return state.solveDates[p.id] || null; }
-  Store.problemsFor = problemsFor; Store.allProblemsLive = allProblemsLive; Store.isSolved = isSolved; Store.codeFor = codeFor; Store.solveDate = solveDate;
+  Object.assign(Store, { tags, isSolved, solveDate, solutionPaths });
+
+  // Another tab took over the data; stop the engine so this one goes quiet.
+  Persistence.subscribe(()=>{ if(Persistence.status().state==='conflict') stopEngine(); });
 
   // ==================== GLOBAL MEADOW ENGINE =========================
   let engineTimer = null;
@@ -393,8 +390,8 @@
     if(!m.boss){
       if(now >= (m.nextSpawnAt||0)){
         const boss = rollBoss(zone);
-        const tag = boss.tier==='legend'?'\u2b50 LEGENDARY ':boss.tier==='elite'?'\u2728 ELITE ':'';
-        pushLog('A '+tag+'wild '+(boss.shiny?'\u2728shiny ':'')+boss.name+' appeared!','spawn');
+        const tag = boss.tier==='legend'?'⭐ LEGENDARY ':boss.tier==='elite'?'✨ ELITE ':'';
+        pushLog('A '+tag+'wild '+(boss.shiny?'✨shiny ':'')+boss.name+' appeared!','spawn');
         set({ ...state, meadow:{ ...m, boss, lastActive:now } });
       }
       return;
@@ -425,7 +422,7 @@
       const shardP = Math.min(0.95, zone.shardChance * tierMult);
       const shards = Math.random()<shardP ? Math.round((10 + Math.random()*30) * (rMult/2) * (m.boss.tier==='legend'?3:1)) : 0;
       const exp = m.boss.tier==='legend'?12 : m.boss.tier==='elite'?4 : 1;
-      const tag = m.boss.tier==='legend'?'\u2b50 ':m.boss.tier==='elite'?'\u2728 ':'';
+      const tag = m.boss.tier==='legend'?'⭐ ':m.boss.tier==='elite'?'✨ ':'';
       pushLog('Defeated '+tag+m.boss.name+' (Lv'+m.boss.level+')!  +'+coins+'c'+(shards?'  +'+shards+'sh':''),'win');
       set({ ...state, coins:state.coins+coins, shards:state.shards+shards,
         owned: mapExp(state.owned, state.team, exp),
@@ -436,7 +433,7 @@
   }
 
   function startEngine(){
-    if(engineTimer) return;
+    if(engineTimer || Persistence.status().state==='conflict') return;
     const m = state.meadow;
     if(m.patrolling && m.lastActive){
       const awaySec = Math.min(4*3600, (Date.now()-m.lastActive)/1000);
@@ -446,7 +443,7 @@
         if(kills>0){
           const avgCoins = Math.round((zone.coinFloor+zone.coinCeil)/2 * 0.35 * 1.4);
           const coins = kills*avgCoins;
-          pushLog('While away: '+kills+' encounters cleared  \u00b7  +'+coins+'c','away');
+          pushLog('While away: '+kills+' encounters cleared  ·  +'+coins+'c','away');
           set({ ...state, coins:state.coins+coins, meadow:{ ...m, coinsToday:m.coinsToday+coins, kills:m.kills+kills, lastActive:Date.now() } });
         }
       }
@@ -464,7 +461,7 @@
   }
   function solvedCounts(){
     let easy=0, med=0, hard=0;
-    allProblemsLive().forEach(p=>{ if(!isSolved(p)) return; if(p.diff==='Easy') easy++; else if(p.diff==='Medium') med++; else hard++; });
+    state.problems.forEach(p=>{ if(!isSolved(p)) return; if(p.difficulty==='Easy') easy++; else if(p.difficulty==='Medium') med++; else hard++; });
     return { easy, med, hard, total: easy+med+hard };
   }
   function weightedPoints(){ const c=solvedCounts(); return c.easy*1 + c.med*3 + c.hard*10; }
@@ -472,18 +469,18 @@
   function teamList(){ const byId=Object.fromEntries(state.owned.map(o=>[o.iid,o])); return state.team.map(i=>byId[i]).filter(Boolean); }
   function teamBasePower(){ return teamList().reduce((s,m)=> s+monPower(m), 0); }
   function teamPower(){ return Math.round(teamBasePower()*teamMultiplier()); }
-  function categoryStats(){
-    return categories().map(cat=>{
-      const probs = problemsFor(cat.id);
+  function tagStats(){
+    return tags().map(tag=>{
+      const probs = state.problems.filter(p=> p.tags.includes(tag.id));
       const solved = probs.filter(isSolved).length;
-      return { ...cat, solved, count:probs.length, pct: probs.length?solved/probs.length:0 };
+      return { ...tag, solved, count:probs.length, pct: probs.length?solved/probs.length:0 };
     });
   }
 
   // ---- dated training log ----
   function solveCountByDate(){
-    const m = {}; const sd = state.solveDates||{};
-    Object.values(sd).forEach(date=>{ if(date) m[date] = (m[date]||0)+1; });
+    const m = {};
+    state.problems.forEach(p=>{ if(p.solvedAt) m[p.solvedAt] = (m[p.solvedAt]||0)+1; });
     return m;
   }
   function trainingGrid(weeks){
@@ -529,6 +526,6 @@
   Object.defineProperty(Store, 'TODAY', { get(){ return getToday(); } });
   window.Store = Store; window.useStore = useStore;
   window.Derived = { monPower, solvedCounts, weightedPoints, teamMultiplier,
-    teamList, teamBasePower, teamPower, categoryStats, streakInfo, expToNext,
+    teamList, teamBasePower, teamPower, tagStats, streakInfo, expToNext,
     trainingGrid, solveCountByDate, ownedSpecies, formSets };
 })();

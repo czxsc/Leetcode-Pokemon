@@ -36,7 +36,8 @@
       e(TopNav,{ page, setPage }),
       e('div',{ key:page, className:'fade-in', style:{ flex:1, minHeight:0 } },
         (PAGES[page] || PAGES.dashboard)()
-      )
+      ),
+      e(window.SaveBanner)
     );
   }
 
