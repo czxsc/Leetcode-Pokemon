@@ -589,7 +589,7 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
 .onb-step.done .onb-step-n{ background:var(--sage); border-color:var(--sage-deep); color:#fff; }
 .onb-body{ padding-top:18px; }
 .onb-lead{ font-size:16px; color:var(--ink); text-align:center; }
-.onb-grid{ display:grid; grid-template-columns:repeat(9,1fr); gap:9px; margin-top:18px; }
+.onb-grid{ display:grid; grid-template-columns:repeat(6,1fr); gap:9px; margin-top:18px; }
 .onb-mon{ padding:8px 4px 6px; border-radius:10px; background:var(--card-2); border:3px solid var(--card-line); cursor:pointer; text-align:center; }
 .onb-mon:hover{ border-color:var(--lav); }
 .onb-mon.on{ background:var(--lav-lite); border-color:var(--lav-deep); box-shadow:0 0 10px var(--lav-lite); }

@@ -75,11 +75,10 @@
   }
   // ---- onboarding: pick one partner, the other 5 are random basics ----
   // Partner choices: every generation's starter trio plus Pikachu and Eevee.
-  const STARTERS = ['bulbasaur','charmander','squirtle','pikachu','eevee',
+  // Gen 1-5 only, so every partner uses the animated Black/White sprite
+  const STARTERS = ['bulbasaur','charmander','squirtle','pikachu','eevee','caterpie',
     'chikorita','cyndaquil','totodile','treecko','torchic','mudkip',
-    'turtwig','chimchar','piplup','snivy','tepig','oshawott',
-    'chespin','fennekin','froakie','rowlet','litten','popplio',
-    'grookey','scorbunny','sobble'].filter(id=> BY_ID[id]);
+    'turtwig','chimchar','piplup','snivy','tepig','oshawott'].filter(id=> BY_ID[id]);
   // Basic (unevolved) species, so a starting team never skips ahead in an evolution line.
   const EVOLVED = new Set([...SPECIES.map(s=>s.evo).filter(Boolean), ...EEVEE_EVOS]);
   function pickDistinct(pool, n){
