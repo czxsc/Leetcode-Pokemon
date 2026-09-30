@@ -16,27 +16,7 @@
   const hintStyle = { fontSize:13, color:'var(--ink-faint)', lineHeight:1.5, marginBottom:14 };
   const ellipsis = { overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' };
 
-  // ---------- LEFT: tag menu ----------
-  function NewTagModal({ onClose, onCreate }){
-    const [name,setName] = useState('');
-    const slug = Catalog.slugify(name, 40);
-    function add(){ if(!slug) return; onCreate(name.trim()); }
-    return e('div',{ className:'modal-veil', onClick:onClose },
-      e('div',{ className:'panel modal', onClick:(ev)=>ev.stopPropagation() },
-        e('div',{ className:'panel-title' }, e('span',{className:'dot'}), 'New Tag'),
-        e('div',{ className:'field' }, e('label',{},'Tag name'),
-          e('input',{ value:name, autoFocus:true, maxLength:40, placeholder:'e.g. Union Find',
-            onChange:(ev)=>setName(ev.target.value), onKeyDown:(ev)=>ev.key==='Enter'&&add() })),
-        e('div',{ style:hintStyle },
-          'Tags group your problems and feed your topic stats. Each tag gets its own folder of solutions: ',
-          e('b',{}, 'solutions/'+(slug||'tag-name')+'/'), '.'),
-        e('div',{ style:{ display:'flex', gap:10, justifyContent:'flex-end' } },
-          e('button',{ className:'btn', onClick:onClose }, 'Cancel'),
-          e('button',{ className:'btn green', disabled:!slug, onClick:add }, 'Create'))
-      )
-    );
-  }
-
+  // ---------- LEFT: tag menu (new tags are added from the problem editor) ----------
   function TagItem({ item, active, onSelect, onDelete }){
     return e('button',{ className:'cat-item'+(active?' active':'')+(item.count?'':' empty'), onClick:onSelect,
         style:{ width:'100%', textAlign:'left', background: active?undefined:'transparent', border:'2px solid '+(active?'var(--sage-deep)':'transparent') } },
@@ -46,19 +26,26 @@
           item.custom ? e('span',{ className:'type-tag', style:{ background:'var(--lav)', color:'#fff', fontSize:7, padding:'1px 4px' } }, 'MINE') : null,
           e('span',{ className:'ccount', style:{ marginLeft:'auto' } }, item.solved+'/'+item.count)),
         e('div',{ className:'minibar', style:{ marginTop:5 } },
-          e('i',{ style:{ width:(item.pct*100)+'%' } }))
+          e('i',{ style:{ width:(item.pct*100)+'%', background:item.color } }))
       ),
       onDelete ? e('span',{ title:'Delete tag', onClick:(ev)=>{ ev.stopPropagation(); onDelete(); },
         style:{ fontFamily:"'Silkscreen'", fontSize:12, color:'var(--ink-faint)', cursor:'pointer', padding:'0 2px' } }, '×') : null
     );
   }
 
-  function TagMenu({ sel, setSel }){
+  // one menu row's numbers for a subset of problems
+  function menuItem(id, name, probs, extra){
+    const solved = probs.filter(window.Store.isSolved).length;
+    return { id, name, solved, count:probs.length, pct: probs.length?solved/probs.length:0, ...extra };
+  }
+
+  function TagMenu({ by, setBy, sel, setSel }){
     const st = window.useStore();                       // re-render when tags/problems change
     const stats = window.Derived.tagStats();
-    const [modal, setModal] = useState(false);
-    const solved = st.problems.filter(window.Store.isSolved).length;
-    const all = { id:ALL, name:'All Problems', solved, count:st.problems.length, pct: st.problems.length?solved/st.problems.length:0 };
+    const all = menuItem(ALL, 'All Problems', st.problems);
+    const diffs = Catalog.DIFFICULTIES.map(d=>
+      menuItem(d, d, st.problems.filter(p=>p.difficulty===d), { color:'var(--'+d.toLowerCase()+')' }));
+    const pickBy = (next)=>{ if(next!==by){ setBy(next); setSel(ALL); } };
 
     function removeTag(tag){
       const note = tag.count ? ` It will be removed from ${tag.count} problem${tag.count===1?'':'s'} (the problems stay).` : '';
@@ -68,16 +55,17 @@
     }
 
     return e('div',{ className:'panel', style:colStyle },
-      modal ? e(NewTagModal,{ onClose:()=>setModal(false),
-        onCreate:(name)=>{ const id=window.Store.addTag(name); setModal(false); if(id) setSel(id); } }) : null,
-      e('div',{ style:{ display:'flex', alignItems:'center', marginBottom:10 } },
-        e('div',{ className:'panel-title', style:{ margin:0, flex:1 } }, e('span',{className:'dot'}), 'Tags'),
-        e('button',{ className:'iconbtn', onClick:()=>setModal(true) }, '+ Tag')),
+      e('div',{ className:'panel-title' }, e('span',{className:'dot'}), by==='tag' ? 'Tags' : 'Difficulty'),
+      e('div',{ className:'seg seg-mini', style:{ marginBottom:10 } },
+        [['tag','By Tag'],['difficulty','By Difficulty']].map(([id,label])=>
+          e('button',{ key:id, type:'button', className:'seg-btn'+(by===id?' on':''), onClick:()=>pickBy(id) }, label))),
       e('div',{ style:scrollBody },
         e(TagItem,{ item:all, active:sel===ALL, onSelect:()=>setSel(ALL) }),
         e('div',{ style:{ height:1, background:'var(--card-line)', margin:'4px 6px 8px' } }),
-        stats.map(c=> e(TagItem,{ key:c.id, item:c, active:sel===c.id, onSelect:()=>setSel(c.id),
-          onDelete: c.custom ? ()=>removeTag(c) : null }))
+        by==='tag'
+          ? stats.map(c=> e(TagItem,{ key:c.id, item:c, active:sel===c.id, onSelect:()=>setSel(c.id),
+              onDelete: c.custom ? ()=>removeTag(c) : null }))
+          : diffs.map(d=> e(TagItem,{ key:d.id, item:d, active:sel===d.id, onSelect:()=>setSel(d.id) }))
       )
     );
   }
@@ -320,48 +308,56 @@
     );
   }
 
-  function EmptyList({ tag, query, onNew }){
+  function EmptyList({ tag, diff, query, onNew }){
     const st = window.useStore();
     let text;
     if(query) text = `No problems match “${query}”.`;
     else if(st.problems.length && tag) text = `Nothing tagged ${tag.name} yet.`;
-    else text = 'No problems yet! Solved something on LeetCode? Add it here with your solution and claim Shards for the gacha.';
+    else if(st.problems.length && diff) text = `No ${diff} problems yet.`;
+    else text = 'No problems yet! Solved something on LeetCode? Add it here with your solution and claim Shards to summon new friends.';
     return e('div',{ style:{ textAlign:'center', padding:'40px 24px', color:'var(--ink-faint)' } },
       e('div',{ style:{ display:'inline-block', marginBottom:12 } }, e(Pokeball,{ size:40 })),
       e('div',{ style:{ fontSize:15, lineHeight:1.5, maxWidth:360, margin:'0 auto 16px' } }, text),
       query ? null : e('button',{ className:'btn green', onClick:onNew }, '+ New Problem'));
   }
 
-  function ProblemList({ tagId }){
+  function ProblemList({ by, sel }){
     const st = window.useStore();
     const tags = window.Store.tags();
     const tagById = Object.fromEntries(tags.map(t=>[t.id,t]));
-    const tag = tagById[tagId] || null;
+    const tag = by==='tag' ? tagById[sel] || null : null;
+    const diff = by==='difficulty' && Catalog.DIFFICULTIES.includes(sel) ? sel : null;
     const [query, setQuery] = useState('');
     const [openId, setOpenId] = useState(null);
-    const [modal, setModal] = useState(null);           // 'data' | { problem? }
-    const inTag = tag ? st.problems.filter(p=> p.tags.includes(tag.id)) : st.problems;
+    const [modal, setModal] = useState(null);           // { problem? }
+    const inView = tag ? st.problems.filter(p=> p.tags.includes(tag.id))
+      : diff ? st.problems.filter(p=> p.difficulty===diff) : st.problems;
     const q = query.trim().toLowerCase();
-    const probs = (q ? inTag.filter(p=> p.title.toLowerCase().includes(q)) : inTag)
+    const probs = (q ? inView.filter(p=> p.title.toLowerCase().includes(q)) : inView)
       .slice().sort((a,b)=> String(b.createdAt).localeCompare(String(a.createdAt)));
-    const solvedN = inTag.filter(window.Store.isSolved).length;
+    const solvedN = inView.filter(window.Store.isSolved).length;
     const openEditor = (problem)=> setModal({ problem });
+    // Claim All covers every solved problem, not just the ones in this view
+    const ready = st.problems.filter(p=> window.Store.isSolved(p) && !p.claimed);
+    const readyShards = ready.reduce((n,p)=> n + (window.DATA.SHARD_BY_DIFF[p.difficulty]||0), 0);
 
     return e('div',{ className:'panel card', style:colStyle },
-      modal==='data' ? e(DataModal,{ onClose:()=>setModal(null) }) : null,
-      modal && modal!=='data' ? e(ProblemEditor,{ problem:modal.problem, defaultTag: tag && tag.id,
+      modal ? e(ProblemEditor,{ problem:modal.problem, defaultTag: tag && tag.id,
         onClose:()=>setModal(null), onSaved:(id)=>{ setModal(null); setOpenId(id); } }) : null,
       e('div',{ style:{ display:'flex', alignItems:'center', gap:10, marginBottom:12 } },
         e('div',{ style:{ flex:1, minWidth:0 } },
-          e('div',{ className:'pixel-font', style:{ fontSize:17, color:'var(--wood-dark)', ...ellipsis } }, tag ? tag.name : 'All Problems'),
+          e('div',{ className:'pixel-font', style:{ fontSize:17, color:'var(--wood-dark)', ...ellipsis } },
+            tag ? tag.name : diff ? diff+' Problems' : 'All Problems'),
           e('div',{ style:{ fontSize:14, color:'var(--ink-faint)', marginTop:3 } },
-            `${solvedN} solved · ${inTag.length} total`)),
+            `${solvedN} solved · ${inView.length} total`)),
         e('input',{ className:'search-input', value:query, placeholder:'Search…', onChange:(ev)=>setQuery(ev.target.value) }),
         e('button',{ className:'iconbtn', onClick:()=>openEditor(null) }, '+ New Problem'),
-        e('button',{ className:'iconbtn', title:'Where your data is saved, backups', onClick:()=>setModal('data') }, 'Data')
+        e('button',{ className:'iconbtn', disabled:!ready.length, onClick:()=> window.Store.claimAllProblems(),
+            title: ready.length ? `Claim Shards for all ${ready.length} solved problem${ready.length===1?'':'s'}` : 'No rewards to claim' },
+          'Claim All', ready.length ? [' · ', e(Shard,{ key:'s', size:12 }), readyShards.toLocaleString()] : null)
       ),
       e('div',{ style:scrollBody },
-        probs.length === 0 ? e(EmptyList,{ tag, query:query.trim(), onNew:()=>openEditor(null) })
+        probs.length === 0 ? e(EmptyList,{ tag, diff, query:query.trim(), onNew:()=>openEditor(null) })
           : [
             ...probs.map(p=> e(ProblemRow,{ key:p.id, p, tagById, hideTag: tag && tag.id,
               open: openId===p.id, onToggle:()=>setOpenId(openId===p.id?null:p.id), onEdit:()=>openEditor(p) })),
@@ -421,10 +417,41 @@
       } });
   }
 
+  function TrainerAvatar({ avatar, onMessage }){
+    const fileRef = useRef(null);
+    async function pick(ev){
+      const file = ev.target.files && ev.target.files[0];
+      ev.target.value = '';
+      if(!file) return;
+      if(!/^image\//.test(file.type)){ onMessage('That file isn’t an image.'); return; }
+      try{
+        const dataUrl = await window.shrinkPhoto(file);
+        onMessage(window.Store.setTrainerAvatar(dataUrl) ? null : 'Couldn’t use that image.');
+      }catch(err){
+        onMessage(err.message || 'Couldn’t use that image.');
+      }
+    }
+    return e('div',{ className:'trainer-avatar' },
+      e('button',{ type:'button', className:'avatar-upload', title:'Upload a profile picture',
+          'aria-label':'Upload a profile picture', onClick:()=> fileRef.current && fileRef.current.click() },
+        e('img',{ src: avatar || (window.AppAssets && window.AppAssets.pokeAvatar), alt:'Trainer avatar', draggable:false,
+          style:{ imageRendering: avatar ? 'auto' : 'pixelated' } }),
+        e('span',{ className:'avatar-overlay', 'aria-hidden':true },
+          e('svg',{ width:22, height:22, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2.4, strokeLinecap:'round', strokeLinejoin:'round' },
+            e('path',{ d:'M12 16V4' }), e('path',{ d:'M7 9l5-5 5 5' }), e('path',{ d:'M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3' })),
+          e('span',{ className:'avatar-overlay-label' }, 'upload'))),
+      avatar ? e('button',{ type:'button', className:'avatar-reset', title:'Use the default avatar',
+          'aria-label':'Use the default avatar', onClick:()=>{ window.Store.setTrainerAvatar(null); onMessage(null); } }, '×') : null,
+      e('input',{ ref:fileRef, type:'file', accept:'image/png,image/jpeg,image/webp,image/gif', onChange:pick, style:{ display:'none' } }));
+  }
+
   function TrainerCard(){
     const st = window.useStore();
     const D = window.Derived;
     const [detail, setDetail] = useState(null);
+    const [avatarMsg, setAvatarMsg] = useState(null);
+    const [dataOpen, setDataOpen] = useState(false);
+    const saveStatus = window.usePersistenceStatus();
     const power = D.teamPower();
     const mult = D.teamMultiplier();
     const streak = D.streakInfo();
@@ -447,17 +474,17 @@
 
     return e('div',{ className:'panel', style:{ ...colStyle, gap:0 } },
       detail ? e(window.MonDetailModal,{ iid:detail, onClose:()=>setDetail(null) }) : null,
+      dataOpen ? e(DataModal,{ onClose:()=>setDataOpen(false) }) : null,
       e('div',{ style:scrollBody },
         // header
-        e('div',{ style:{ display:'flex', gap:12, alignItems:'center', marginBottom:12 } },
-          e('div',{ style:{ width:78, height:78, borderRadius:12, background:'var(--lav-lite)', border:'3px solid var(--lav-deep)', overflow:'hidden', flex:'none', boxShadow:'inset 0 2px 0 rgba(255,255,255,.4), 0 3px 0 rgba(124,90,61,.18)' } },
-            e('img',{ src:window.AppAssets && window.AppAssets.pokeAvatar, alt:'Trainer avatar', draggable:false,
-              style:{ width:'100%', height:'100%', objectFit:'cover', imageRendering:'pixelated', display:'block' } })),
+        e('div',{ style:{ display:'flex', gap:12, alignItems:'center', marginBottom: avatarMsg ? 6 : 12 } },
+          e(TrainerAvatar,{ avatar:st.trainer.avatar, onMessage:setAvatarMsg }),
           e('div',{ style:{ flex:1, minWidth:0 } },
             e(TrainerName,{ name:st.trainer.name }),
             e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', marginTop:3 } }, 'LeetCode Trainer'),
             e('div',{ style:{ fontSize:12, color:'var(--ink-faint)', marginTop:2 } }, since))
         ),
+        avatarMsg ? e('div',{ className:'form-error', style:{ margin:'0 0 10px' } }, '✖ '+avatarMsg) : null,
         // stat tiles
         e('div',{ style:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 } },
           e('div',{ className:'stile', style:{ gridColumn:'1 / -1', display:'flex', alignItems:'center', gap:10, textAlign:'left' } },
@@ -504,16 +531,26 @@
         strong.length ? strong.map(c=>TopicRow(c,'strong'))
           : e('div',{ style:{ fontSize:13, color:'var(--ink-faint)', marginBottom:6 } }, 'Solve a few problems to see your best topics.'),
         e('div',{ className:'panel-title', style:{ marginTop:10 } }, e('span',{className:'dot', style:{background:'var(--medium)'}}), 'Needs Training'),
-        weak.map(c=>TopicRow(c,'weak'))
+        weak.map(c=>TopicRow(c,'weak')),
+        // where the save lives, backups
+        e('div',{ className:'panel-title', style:{ marginTop:14 } }, e('span',{className:'dot', style:{background:'var(--sky)'}}), 'Data'),
+        e('div',{ className:'chip-card', style:{ padding:'10px 12px', display:'flex', alignItems:'center', gap:10 } },
+          e('div',{ style:{ flex:1, minWidth:0 } },
+            e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)' } }, 'SAVED TO'),
+            // a data folder path is long, so show its last two folders (full path on hover)
+            e('div',{ title:saveStatus.location, style:{ fontSize:13, color:'var(--ink)', marginTop:3, ...ellipsis } },
+              saveStatus.mode==='disk' ? '…/'+String(saveStatus.location).split(/[\\/]+/).filter(Boolean).slice(-2).join('/') : saveStatus.location)),
+          e('button',{ className:'iconbtn', title:'Where your data is saved, backups', onClick:()=>setDataOpen(true) }, 'Backups'))
       )
     );
   }
 
   function Dashboard(){
+    const [by, setBy] = useState('tag');                // 'tag' | 'difficulty'
     const [sel, setSel] = useState(ALL);
     return e('div',{ style:{ display:'grid', gridTemplateColumns:'258px minmax(0,1fr) 318px', gap:14, height:'100%', minHeight:0 } },
-      e(TagMenu,{ sel, setSel }),
-      e(ProblemList,{ tagId:sel }),
+      e(TagMenu,{ by, setBy, sel, setSel }),
+      e(ProblemList,{ by, sel }),
       e(TrainerCard)
     );
   }

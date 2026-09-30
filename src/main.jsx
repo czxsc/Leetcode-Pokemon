@@ -6,6 +6,9 @@ import * as Catalog from '../shared/catalog.js'
 import * as DateUtil from './date-utils.js'
 import * as LegacyImport from './legacy-import.js'
 import { openPersistence } from './persistence.js'
+import * as Study from './study.js'
+import { connectTracker } from './tracker.js'
+import trackerManifest from '../extension/manifest.json'
 import pokeAvatar from './assets/PokeAvatar.png'
 import './theme.css'
 
@@ -20,6 +23,10 @@ window.Catalog = Catalog
 window.DateUtil = DateUtil
 window.LegacyImport = LegacyImport
 window.AppAssets = { pokeAvatar }
+window.Study = Study
+// The Tracker extension in this repo's extension/ folder; an older copy
+// loaded in the browser is reported as needing a reload.
+window.Tracker = connectTracker({ expectedVersion: trackerManifest.version, demo: window.AppConfig.demo })
 
 const root = createRoot(document.getElementById('root'))
 
@@ -41,12 +48,14 @@ async function boot() {
   await import('./legacy/js/detail.jsx')
   await import('./legacy/js/dashboard.jsx')
   await import('./legacy/js/gacha.jsx')
+  await import('./legacy/js/chapters.jsx')
   await import('./legacy/js/quests.jsx')
   await import('./legacy/js/recall.jsx')
   await import('./legacy/js/team.jsx')
   await import('./legacy/js/pokedex.jsx')
   await import('./legacy/js/shop.jsx')
   await import('./legacy/js/meadow.jsx')
+  await import('./legacy/js/onboarding.jsx')
   await import('./legacy/js/app.jsx')
 
   root.render(

@@ -5,8 +5,8 @@
    Problems are created by the player (title, difficulty, tags, pasted
    solution); a problem counts as solved once it has a solution.
    Shiny + mega/gmax forms (unlock + switch) + evolution-by-duplicate,
-   tiered pity (epic@15 / legendary@40 / chosen-target@100), tiered
-   meadow combat with per-mon damage events, dated solve log.
+   tiered pity (epic@15 / legendary@40 / chosen-target@100), study
+   sessions that power tiered meadow combat, dated solve log.
 ===================================================================== */
 (function(){
   const PM = window.PixelMon;
@@ -15,10 +15,15 @@
   const expToNext = window.DATA.expToNext;
   const Catalog = window.Catalog;
   const Persistence = window.Persistence;
+  const Study = window.Study;        // src/study.js — the study timer
+  const Tracker = window.Tracker;    // src/tracker.js — is LeetCode the active tab?
   const BACKUP_TYPE = 'pokeleet-backup', BACKUP_VERSION = 2;
   function getToday(){ return window.DateUtil.todayLocal(); }
   function daysAgo(n, base){ return window.DateUtil.daysAgo(n, base || getToday()); }
   const isDate = (d)=> typeof d==='string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+  // custom trainer photo: a small data: URL (the dashboard shrinks uploads before saving)
+  const AVATAR_MAX_CHARS = 400000;
+  const isAvatar = (a)=> typeof a==='string' && a.length<=AVATAR_MAX_CHARS && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(a);
 
   // pity thresholds
   const EPIC_PITY = 15, LEGEND_PITY = 40, LEGEND_TARGET_PITY = 100, EPIC_TARGET_PITY = 60;
@@ -30,7 +35,7 @@
       ...base,
       quests: {},
       recallToday: false,
-      meadow: { ...(base.meadow||{}), coinsToday: 0 },
+      meadow: { ...(base.meadow||{}), coinsToday: 0, studyToday: 0 },
       lastDay: today,
     };
   }
@@ -54,17 +59,34 @@
     ];
   }
 
+  // lifetime counters for progression quests
+  const seedStats = ()=> ({ evolutions:0, pityHits:0, recalls:0, perfectDays:0, lastPerfectDay:null });
+
+  // Gacha items: bought with Coins in the Shop, spent on a Single Draw from the Gacha tab.
+  // A "ball" sets the draw's rarity (only one per draw); a Generation Ticket narrows it to one generation.
+  const GACHA_ITEMS = ['rateBooster', 'greatBall', 'ultraBall', 'genTicket'];
+  const BALL_ITEM = { boost:'rateBooster', great:'greatBall', ultra:'ultraBall' };
+  const seedItems = ()=> Object.fromEntries(GACHA_ITEMS.map(k=> [k, 0]));
+  // Shop prices in Coins (the Shop page reads these too)
+  const PRICES = { candy:400, snack:900, mega:6000, gmax:6000, shiny:10000,
+    greatBall:1500, genTicket:2000, rateBooster:2500, ultraBall:4000 };
+
   function seedProgress(){
     const owned = starterOwned();
     return {
+      // false until the first-run onboarding picks a name and starting team (the six above are placeholders)
+      onboarded: false,
+      stats: seedStats(), achievements: {},
       trainer: { name:'Trainer' }, createdAt: getToday(), preferredLanguage: 'python',
       shards: 5000, coins: 0, megaStones: 0, gmaxStones: 0,
+      items: seedItems(),
       owned, team: owned.map(o=>o.iid),
       quests: {}, recallBest: 0, recallToday: false,
       pity: 0, epicPity: 0, totalPulls: 0,
       guaranteedLegendary: null, guaranteedEpic: null,
       legendaryTargetPity: 0, epicTargetPityCount: 0,
-      meadow: { patrolling:false, coinsToday:0, kills:0, boss:null, nextSpawnAt:0, lastActive:0 },
+      // study time in ms; the live session itself is kept by src/study.js
+      meadow: { coinsToday:0, kills:0, studyToday:0, studyTotal:0 },
       lastDay: getToday(), v: 6,
     };
   }
@@ -72,12 +94,22 @@
   // Fill in anything missing from a saved (or imported) progress document.
   function normalizeProgress(saved){
     const seed = seedProgress();
+    const meadow = saved.meadow || {};
+    const count = (n)=> Number.isFinite(n) && n>0 ? n : 0;
     const p = Object.assign(seed, saved, {
       trainer: { ...seed.trainer, ...(saved.trainer||{}) },
-      meadow: { ...seed.meadow, ...(saved.meadow||{}) },
+      // (drops the old always-on patrol's fields)
+      meadow: { coinsToday:count(meadow.coinsToday), kills:count(meadow.kills),
+        studyToday:count(meadow.studyToday), studyTotal:count(meadow.studyTotal) },
+      // saves from before onboarding existed already have a team, so they skip it
+      onboarded: 'onboarded' in saved ? !!saved.onboarded : Array.isArray(saved.owned) && saved.owned.length>0,
+      stats: { ...seed.stats, ...(saved.stats||{}) },
+      items: Object.fromEntries(Object.keys(seed.items).map(k=> [k, count((saved.items||{})[k])])),
+      achievements: { ...(saved.achievements||{}) },
       v: 6,
     });
     delete p.problems; delete p.customTags;
+    if(!isAvatar(p.trainer.avatar)) delete p.trainer.avatar;
     p.owned = migrateForms(Array.isArray(p.owned) ? p.owned : []);
     p.team = (Array.isArray(p.team) ? p.team : []).filter(iid=> p.owned.some(o=>o.iid===iid)).slice(0,6);
     return p;
@@ -161,14 +193,38 @@
       return inst;
     },
     setTeam(team){ set({ ...state, team: team.slice(0,6) }); },
+    // First run: name, optional photo, and the six species from PixelMon.rollStarterTeam (all Lv5).
+    completeOnboarding({ name, avatar, species }){
+      if(state.onboarded) return false;
+      if(!Array.isArray(species) || species.length!==6 || !species.every(id=>PM.byId(id)) || !PM.STARTERS.includes(species[0])) return false;
+      const stamp = Date.now().toString(36);
+      const owned = species.map((sp,i)=>({ iid:'s'+i+stamp, sp, level:5, exp:0, shiny:false, form:null, unlocked:{}, copies:0 }));
+      const trainer = { name: Catalog.oneLine(name).slice(0,24) || 'Trainer' };
+      if(isAvatar(avatar)) trainer.avatar = avatar;
+      set({ ...state, onboarded:true, trainer, owned, team:owned.map(o=>o.iid), createdAt:getToday() });
+      return true;
+    },
     setTrainerName(name){
       set({ ...state, trainer:{ ...state.trainer, name: Catalog.oneLine(name).slice(0,24) || 'Trainer' } });
+    },
+    // dataUrl = a data:image URL, or null to go back to the default avatar
+    setTrainerAvatar(dataUrl){
+      if(dataUrl!=null && !isAvatar(dataUrl)) return false;
+      const trainer = { ...state.trainer };
+      if(dataUrl) trainer.avatar = dataUrl; else delete trainer.avatar;
+      set({ ...state, trainer });
+      return true;
     },
 
     // ---- GACHA (cost deducted by caller) ----
     setLegendaryTarget(spId){ set({ ...state, guaranteedLegendary: spId||null, legendaryTargetPity: 0 }); },
     setEpicTarget(spId){ set({ ...state, guaranteedEpic: spId||null, epicTargetPityCount: 0 }); },
-    gachaPull(count){
+    // use (Single Draw only): { ball:'boost'|'great'|'ultra'|null, gen:1-8|null } spends one of each item.
+    // If a pity or target guarantee lands on that draw it wins, and the items are kept.
+    gachaPull(count, use){
+      const items = { ...state.items };
+      const ball = count===1 && use && BALL_ITEM[use.ball] && items[BALL_ITEM[use.ball]]>0 ? use.ball : null;
+      const gen = count===1 && use && items.genTicket>0 && PM.GENERATIONS.some(g=> g.gen===use.gen) ? use.gen : null;
       let owned = state.owned.slice();
       let shards = state.shards;
       let legendPity = state.pity||0, epicPity = state.epicPity||0, totalPulls = state.totalPulls||0;
@@ -176,14 +232,22 @@
       const legendTarget = state.guaranteedLegendary;
       const epicTarget = state.guaranteedEpic;
       const results = [];
+      let pityHits = 0;
       for(let i=0;i<count;i++){
         legendPity++; epicPity++; if(legendTarget) legendTargetPity++; if(epicTarget) epicTargetPity++; totalPulls++;
-        let sp, pityHit=false, targetHit=false, targetTier=null;
+        let sp, pityHit=false, targetHit=false, targetTier=null, used=[], kept=false;
         if(legendTarget && legendTargetPity>=LEGEND_TARGET_PITY){ sp = PM.byId(legendTarget); targetHit=true; targetTier='legendary'; }
         else if(epicTarget && epicTargetPity>=EPIC_TARGET_PITY){ sp = PM.byId(epicTarget); targetHit=true; targetTier='epic'; }
         else if(legendPity>=LEGEND_PITY){ sp = PM.randomOfTier('legendary'); pityHit=true; }
-        else if(epicPity>=EPIC_PITY){ sp = (Math.random()<0.82) ? PM.randomOfTier('epic') : PM.randomOfTier('legendary'); }
-        else { sp = PM.rollSpecies(); }
+        else if(epicPity>=EPIC_PITY){ sp = (Math.random()<0.82) ? PM.randomOfTier('epic') : PM.randomOfTier('legendary'); kept = !!(ball||gen); }
+        else {
+          sp = PM.rollSpecies({ boost: ball==='boost', tier: ball==='great' ? 'rare' : ball==='ultra' ? 'epic' : null, gen });
+          if(ball){ items[BALL_ITEM[ball]]--; used.push(BALL_ITEM[ball]); }
+          if(gen){ items.genTicket--; used.push('genTicket'); }
+        }
+        if((pityHit || targetHit) && (ball || gen)) kept = true;
+        const itemInfo = { used, usedGen: used.includes('genTicket') ? gen : null, kept };
+        if(pityHit || targetHit) pityHits++;
         if(sp.rarity==='legendary') legendPity = 0;
         if(sp.rarity==='epic' || sp.rarity==='legendary') epicPity = 0;
         if(legendTarget && sp.id===legendTarget) legendTargetPity = 0;
@@ -197,26 +261,37 @@
           if(evo){
             const copies = Math.min(PM.EVO_COPIES, (owned[idx].copies||0)+1);
             owned[idx] = { ...owned[idx], copies };
-            results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isDup:true, copies, need:PM.EVO_COPIES, refund:25, ready: copies>=PM.EVO_COPIES, pity:pityHit, target:targetHit, targetTier });
+            results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isDup:true, copies, need:PM.EVO_COPIES, refund:25, ready: copies>=PM.EVO_COPIES, pity:pityHit, target:targetHit, targetTier, ...itemInfo });
           } else {
             owned[idx] = addLevels(owned[idx], PM.DUP_LEVELS);
-            results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isDup:true, levels:PM.DUP_LEVELS, refund:25, pity:pityHit, target:targetHit, targetTier });
+            results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isDup:true, levels:PM.DUP_LEVELS, refund:25, pity:pityHit, target:targetHit, targetTier, ...itemInfo });
           }
         } else {
           const iid = 'g'+Date.now().toString(36)+i+Math.floor(Math.random()*1296).toString(36);
           owned.push({ iid, sp:sp.id, level:1, exp:0, shiny, form:null, unlocked:{}, copies:0 });
-          results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isNew:true, pity:pityHit, target:targetHit, targetTier });
+          results.push({ speciesId:sp.id, shiny, rarity:sp.rarity, isNew:true, pity:pityHit, target:targetHit, targetTier, ...itemInfo });
         }
       }
-      set({ ...state, owned, shards, pity:legendPity, epicPity, legendaryTargetPity:legendTargetPity, epicTargetPityCount:epicTargetPity, totalPulls });
+      set({ ...state, owned, shards, items, pity:legendPity, epicPity, legendaryTargetPity:legendTargetPity, epicTargetPityCount:epicTargetPity, totalPulls,
+        stats:{ ...state.stats, pityHits:state.stats.pityHits+pityHits } });
       return results;
     },
 
     // ---- SHOP ----
-    rareCandy(iid){ if(state.coins<200) return false; set({ ...state, coins:state.coins-200, owned: mapExp(state.owned,[iid],35) }); return true; },
-    teamSnack(){ if(state.coins<500) return false; set({ ...state, coins:state.coins-500, owned: mapExp(state.owned, state.team,5) }); return true; },
-    buyMegaStone(){ if(state.coins<1500) return false; set({ ...state, coins:state.coins-1500, megaStones:(state.megaStones||0)+1 }); return true; },
-    buyGmaxStone(){ if(state.coins<1500) return false; set({ ...state, coins:state.coins-1500, gmaxStones:(state.gmaxStones||0)+1 }); return true; },
+    rareCandy(iid){ if(state.coins<PRICES.candy) return false; set({ ...state, coins:state.coins-PRICES.candy, owned: mapExp(state.owned,[iid],35) }); return true; },
+    teamSnack(){ if(state.coins<PRICES.snack) return false; set({ ...state, coins:state.coins-PRICES.snack, owned: mapExp(state.owned, state.team,5) }); return true; },
+    buyMegaStone(){ if(state.coins<PRICES.mega) return false; set({ ...state, coins:state.coins-PRICES.mega, megaStones:(state.megaStones||0)+1 }); return true; },
+    buyGmaxStone(){ if(state.coins<PRICES.gmax) return false; set({ ...state, coins:state.coins-PRICES.gmax, gmaxStones:(state.gmaxStones||0)+1 }); return true; },
+    // Shiny Candy: turns one friend shiny (level, forms and copies stay). Its normal version is then
+    // no longer owned, so the gacha pays it out as NEW again and both versions can be collected.
+    // Refused when a shiny of that species is already owned.
+    shinyCandy(iid){
+      const inst = state.owned.find(o=>o.iid===iid);
+      if(!inst || inst.shiny || state.coins<PRICES.shiny) return false;
+      if(state.owned.some(o=> o.sp===inst.sp && o.shiny)) return false;
+      set({ ...state, coins:state.coins-PRICES.shiny, owned: state.owned.map(o=> o.iid===iid ? { ...o, shiny:true } : o) });
+      return true;
+    },
 
     // ---- forms: unlock with a stone, then switch freely ----
     useMegaStone(iid){
@@ -241,12 +316,10 @@
     },
     addMegaStones(n){ set({ ...state, megaStones:(state.megaStones||0)+n }); },
     addGmaxStones(n){ set({ ...state, gmaxStones:(state.gmaxStones||0)+n }); },
-    buyEvolutionCopy(iid){
-      const inst = state.owned.find(o=>o.iid===iid); if(!inst) return false;
-      const sp = PM.byId(inst.sp); const evoChoices = sp && PM.evoOptions(sp);
-      if(!sp || !evoChoices || !evoChoices.length || state.coins<800) return false;
-      set({ ...state, coins:state.coins-800,
-        owned: state.owned.map(o=> o.iid===iid ? { ...o, copies: Math.min(PM.EVO_COPIES, (o.copies||0)+1) } : o) });
+    buyGachaItem(id){
+      const price = GACHA_ITEMS.includes(id) ? PRICES[id] : null;
+      if(price==null || state.coins<price) return false;
+      set({ ...state, coins:state.coins-price, items:{ ...state.items, [id]:(state.items[id]||0)+1 } });
       return true;
     },
 
@@ -256,13 +329,31 @@
       const sp = PM.byId(inst.sp); const options = sp && PM.evoOptions(sp);
       const evo = chosenEvo && options && options.includes(chosenEvo) ? chosenEvo : (sp && PM.evoTarget(sp));
       if(!evo || (inst.copies||0) < PM.EVO_COPIES) return false;
-      set({ ...state, owned: state.owned.map(o=> o.iid===iid?{ ...o, sp:evo, copies:0, form:null, unlocked:{} }:o) });
+      set({ ...state, owned: state.owned.map(o=> o.iid===iid?{ ...o, sp:evo, copies:0, form:null, unlocked:{} }:o),
+        stats:{ ...state.stats, evolutions:state.stats.evolutions+1 } });
       return true;
     },
 
     completeQuest(id){ if(state.quests[id]) return; set({ ...state, quests:{ ...state.quests,[id]:true } }); },
-    grantQuest(id, shards){ if(state.quests[id]) return; set({ ...state, quests:{ ...state.quests,[id]:true }, shards:state.shards+shards }); },
-    setRecallBest(n){ set({ ...state, recallBest: Math.max(state.recallBest, n), recallToday:true }); },
+    // quests are step chains: quests[id] counts the steps claimed today (a legacy `true` counts as 1).
+    // Claims only step `step`, so a double click can't pay out twice.
+    grantQuest(id, step, shards){
+      const claimed = Number(state.quests[id]) || 0;
+      if(step !== claimed) return;
+      set({ ...state, quests:{ ...state.quests, [id]:claimed+1 }, shards:state.shards+shards });
+    },
+    // every daily quest claimed today (the Quests page decides) — counted once per day
+    markPerfectDay(){
+      if(state.stats.lastPerfectDay===getToday()) return;
+      set({ ...state, stats:{ ...state.stats, perfectDays:state.stats.perfectDays+1, lastPerfectDay:getToday() } });
+    },
+    // progression quests are claimed once, ever
+    claimAchievement(id, shards){
+      if(state.achievements[id]) return;
+      set({ ...state, achievements:{ ...state.achievements, [id]:getToday() }, shards:state.shards+shards });
+    },
+    setRecallBest(n){ set({ ...state, recallBest: Math.max(state.recallBest, n), recallToday:true,
+      stats:{ ...state.stats, recalls:state.stats.recalls+1 } }); },
 
     // ---- PROBLEMS ----
     // fields: { title, difficulty, tags, language, url, code }
@@ -287,6 +378,16 @@
       const amount = window.DATA.SHARD_BY_DIFF[p.difficulty] || 0;
       set({ ...state, shards: state.shards+amount, owned: mapExp(state.owned, state.team, 1),
         problems: state.problems.map(x=> x.id===id?{ ...x, claimed:true, claimedAt:getToday() }:x) });
+    },
+    // every solved, unclaimed problem at once: same rewards as claiming each (its Shards + 1 team EXP)
+    claimAllProblems(){
+      const ready = state.problems.filter(p=> p.solvedAt && !p.claimed);
+      if(!ready.length) return 0;
+      const shards = ready.reduce((n,p)=> n + (window.DATA.SHARD_BY_DIFF[p.difficulty]||0), 0);
+      const ids = new Set(ready.map(p=>p.id));
+      set({ ...state, shards: state.shards+shards, owned: mapExp(state.owned, state.team, ready.length),
+        problems: state.problems.map(x=> ids.has(x.id)?{ ...x, claimed:true, claimedAt:getToday() }:x) });
+      return shards;
     },
     setSolveDate(id, date){
       if(!isDate(date)) return;
@@ -326,11 +427,35 @@
       }
       stopEngine(); Store.dmgEvents=[];
       set(buildState(progress, library));
+      startEngine();
     },
 
-    // ---- MEADOW control ----
-    startPatrol(){ if(state.meadow.patrolling) return; Store.dmgEvents=[]; set({ ...state, meadow:{ ...state.meadow, patrolling:true, nextSpawnAt: Date.now()+2200, lastActive:Date.now() } }); },
-    stopPatrol(){ Store.dmgEvents=[]; set({ ...state, meadow:{ ...state.meadow, patrolling:false, boss:null } }); },
+    // ---- MEADOW: study sessions (the Focus tab) ----
+    async deployTeam(){
+      if(!Tracker.ready() || !teamList().length) return;
+      let created = false;
+      const s = await Study.change((cur)=>{
+        // one session at a time; an ended one waits until its summary is dismissed
+        if(cur && (Study.isActive(cur) || cur.settledMs < cur.focusMs)) return cur;
+        created = true;
+        return Study.create(STUDY_TARGET, Date.now(), { boss:null, wait:FIRST_SPAWN_MS, carry:0 });
+      });
+      if(created){ Store.meadowLog=[]; Store.dmgEvents=[]; }
+      refreshStudy();
+      Tracker.openLeetCode(s.target.url);
+    },
+    async endSession(){
+      await Study.change((s)=> Study.end(s, Tracker.reading(), Date.now()));
+      refreshStudy();
+      settle();
+    },
+    // close the summary of a finished session
+    async dismissSession(){
+      await Study.change((s)=> s && !Study.isActive(s) && s.settledMs >= s.focusMs ? null : s);
+      refreshStudy();
+    },
+    backToLeetCode(){ if(study) Tracker.openLeetCode(study.target.url); },
+    study(){ return study; },
     meadowLog: [],
     dmgEvents: [],
   };
@@ -365,15 +490,85 @@
     Persistence.adopt(state);
     subs.forEach(fn=>fn());
   });
-  // The meadow only runs in a visible tab, so two open tabs don't both play
-  // (and save) at once. Time spent hidden is paid out as "while away".
+  // Battles run only in a visible tab, so two open tabs don't both pay out
+  // (and save) at once. Study time spent with this tab hidden is fought
+  // through all at once when you come back.
   document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') stopEngine(); });
   Persistence.onResume(()=> startEngine());
 
-  // ==================== GLOBAL MEADOW ENGINE =========================
+  // ==================== MEADOW: STUDY SESSIONS + BATTLES ====================
+  // Every open tab, hidden or not, keeps the shared session (src/study.js)
+  // up to date with the Tracker. Study time then turns into battles: live
+  // while this tab is on screen, or in one go when it comes back into view.
+  let study = Study.load();
   let engineTimer = null;
-  const TICK_MS = 700;
+  const TICK_MS = 700;               // one round of attacks per 0.7s of study time
+  const FIRST_SPAWN_MS = 2200;
+  const STUDY_TARGET = { title:'LeetCode', url:'https://leetcode.com/problemset/' };   // what Deploy Team opens
+  const HEARTBEAT_MS = 15000;
+  const BULK_MS = 15000;             // settling more study time than this at once is summarized in the log
   function pushLog(line,k){ Store.meadowLog = [{ t:line, k:k||'win', id:Math.random() }, ...Store.meadowLog].slice(0,40); }
+  function refreshStudy(){ study = Study.load(); subs.forEach(fn=>fn()); }
+
+  // Time with no PokéLeet tab open doesn't count: on opening, check whether
+  // any other tab was watching in the meantime (and note when this one closes).
+  const joined = Study.joinTabs().then((others)=>{
+    if(!others) return Study.change((s)=> Study.update(s, undefined, Date.now(), { unwatched:true }));
+  });
+  window.addEventListener('pagehide', ()=> Study.leave(Date.now()));
+
+  // Apply the Tracker's latest report (and the pause limit / cap) to the session.
+  function syncStudy(){
+    return joined.then(()=>{
+      if(!Study.isActive(Study.load())) return;
+      return Study.change((s)=> Study.update(s, Tracker.reading(), Date.now()));
+    }).then(refreshStudy);
+  }
+
+  // Turn study time not yet fought through into battles and rewards.
+  let settling = false;
+  async function settle(){
+    if(settling || !engineTimer) return;
+    settling = true;
+    try{
+      await joined;
+      const s = Study.load(), now = Date.now();
+      if(!s) return;
+      const unfought = Study.focusTime(s, now) > s.settledMs;
+      if(!unfought && (!Study.isActive(s) || now < Study.endsAt(s))) return;    // nothing to do yet
+      let result = null;
+      await Study.change((cur)=>{
+        if(!cur) return cur;
+        const t = Date.now();
+        const next = Study.update(cur, Tracker.reading(), t);
+        const total = Study.focusTime(next, t);
+        if(total <= next.settledMs) return next;
+        result = battle(next.combat, total - next.settledMs, t);
+        const e = next.earned;
+        return { ...next, settledMs:total, combat:result.combat,
+          earned:{ kills:e.kills+result.kills, coins:e.coins+result.coins, shards:e.shards+result.shards, exp:e.exp+result.exp } };
+      });
+      if(result) payOut(result);
+      refreshStudy();
+    } finally {
+      settling = false;
+    }
+  }
+
+  function payOut(r){
+    const m = state.meadow;
+    set({ ...state, coins:state.coins+r.coins, shards:state.shards+r.shards,
+      owned: r.exp ? mapExp(state.owned, state.team, r.exp) : state.owned,
+      meadow:{ ...m, coinsToday:m.coinsToday+r.coins, kills:m.kills+r.kills,
+        studyToday:m.studyToday+r.studied, studyTotal:m.studyTotal+r.studied } });
+    if(r.events.length) Store.dmgEvents = [...r.events, ...Store.dmgEvents].slice(0, 48);
+    if(r.studied <= BULK_MS){ r.log.forEach(l=> pushLog(l.t, l.k)); return; }
+    // came back after a while: keep the highlights, summarize the rest
+    r.log.filter(l=> l.k==='win' && l.tier!=='normal').forEach(l=> pushLog(l.t, l.k));
+    const took = r.studied < 60000 ? Math.round(r.studied/1000)+'s' : Math.round(r.studied/60000)+'m';
+    pushLog('While you studied ('+took+'): '+r.kills+' boss'+(r.kills===1?'':'es')+' defeated'+
+      (r.coins?'  +'+r.coins+'c':'')+(r.shards?'  +'+r.shards+'sh':''), 'away');
+  }
 
   // tier roll: legendaries VERY infrequent
   function rollBoss(zone){
@@ -397,23 +592,10 @@
   // spawn gap (ms) — longer downtime so combat isn't back-to-back
   function spawnGap(){ return 7000 + Math.floor(Math.random()*6000); }   // 7–13s
 
-  function tick(){
-    const m = state.meadow; if(!m.patrolling) return;
-    const { zone, weather } = window.DATA.daySeed(getToday());
-    const now = Date.now();
-    if(!m.boss){
-      if(now >= (m.nextSpawnAt||0)){
-        const boss = rollBoss(zone);
-        const tag = boss.tier==='legend'?'⭐ LEGENDARY ':boss.tier==='elite'?'✨ ELITE ':'';
-        pushLog('A '+tag+'wild '+(boss.shiny?'✨shiny ':'')+boss.name+' appeared!','spawn');
-        set({ ...state, meadow:{ ...m, boss, lastActive:now } });
-      }
-      return;
-    }
+  // One round of attacks: per-member damage with variation + crits -> floating numbers.
+  function strike(team, weather, now){
     const mult = window.Derived.teamMultiplier();
-    const team = window.Derived.teamList();
-    // per-member damage with variation + crits -> floating numbers
-    const evts = []; let total = 0;
+    const events = []; let total = 0;
     team.forEach((mem, idx)=>{
       const sp = PM.byId(mem.sp);
       const wBuff = (sp.types||[sp.type]).includes(weather.type) ? 1.4 : 1;
@@ -422,49 +604,67 @@
       if(crit) dmg *= 2;
       dmg = Math.max(1, Math.round(dmg));
       total += dmg;
-      evts.push({ iid:mem.iid, slot:idx, dmg, crit, weather:wBuff>1, id:Math.random().toString(36).slice(2), t:now });
+      events.push({ iid:mem.iid, slot:idx, dmg, crit, weather:wBuff>1, id:Math.random().toString(36).slice(2), t:now });
     });
-    Store.dmgEvents = [...evts, ...Store.dmgEvents].slice(0, 48);
-    let hp = m.boss.hp - total;
-    if(hp <= 0){
-      const rMult = RARITY[m.boss.rarity].mult;                       // 1 / 2 / 3 / 5
-      const tierMult = m.boss.tier==='legend'?20 : m.boss.tier==='elite'?5 : 1;
-      const lvlFactor = 0.5 + m.boss.level/40;                        // ~0.7 .. ~2.0
-      const baseCoins = zone.coinFloor + Math.floor(Math.random()*(zone.coinCeil-zone.coinFloor+1));
-      const variance = 0.8 + Math.random()*0.5;                       // ±
-      const coins = Math.round(baseCoins * 0.35 * tierMult * lvlFactor * variance);
-      const shardP = Math.min(0.95, zone.shardChance * tierMult);
-      const shards = Math.random()<shardP ? Math.round((10 + Math.random()*30) * (rMult/2) * (m.boss.tier==='legend'?3:1)) : 0;
-      const exp = m.boss.tier==='legend'?12 : m.boss.tier==='elite'?4 : 1;
-      const tag = m.boss.tier==='legend'?'⭐ ':m.boss.tier==='elite'?'✨ ':'';
-      pushLog('Defeated '+tag+m.boss.name+' (Lv'+m.boss.level+')!  +'+coins+'c'+(shards?'  +'+shards+'sh':''),'win');
-      set({ ...state, coins:state.coins+coins, shards:state.shards+shards,
-        owned: mapExp(state.owned, state.team, exp),
-        meadow:{ ...m, boss:null, nextSpawnAt: now+spawnGap(), coinsToday:m.coinsToday+coins, kills:m.kills+1, lastActive:now } });
-    } else {
-      set({ ...state, meadow:{ ...m, boss:{ ...m.boss, hp }, lastActive:now } });
+    return { total, events };
+  }
+
+  function defeat(boss, zone, r){
+    const rMult = RARITY[boss.rarity].mult;                         // 1 / 2 / 3 / 5
+    const tierMult = boss.tier==='legend'?20 : boss.tier==='elite'?5 : 1;
+    const lvlFactor = 0.5 + boss.level/40;                          // ~0.7 .. ~2.0
+    const baseCoins = zone.coinFloor + Math.floor(Math.random()*(zone.coinCeil-zone.coinFloor+1));
+    const variance = 0.8 + Math.random()*0.5;                       // ±
+    const coins = Math.round(baseCoins * 0.35 * tierMult * lvlFactor * variance);
+    const shardP = Math.min(0.95, zone.shardChance * tierMult);
+    const shards = Math.random()<shardP ? Math.round((10 + Math.random()*30) * (rMult/2) * (boss.tier==='legend'?3:1)) : 0;
+    const tag = boss.tier==='legend'?'⭐ ':boss.tier==='elite'?'✨ ':'';
+    r.coins += coins; r.shards += shards; r.kills++;
+    r.exp += boss.tier==='legend'?12 : boss.tier==='elite'?4 : 1;
+    r.log.push({ k:'win', tier:boss.tier, t:'Defeated '+tag+boss.name+' (Lv'+boss.level+')!  +'+coins+'c'+(shards?'  +'+shards+'sh':'') });
+  }
+
+  // Fight through `studied` ms of study time. combat = { boss, wait, carry }:
+  // the current boss, study time left before the next one appears, and
+  // study time already banked toward the next round of attacks.
+  function battle(combat, studied, now){
+    const { zone, weather } = window.DATA.daySeed(getToday());
+    const team = window.Derived.teamList();
+    const r = { studied, coins:0, shards:0, exp:0, kills:0, log:[], events:[] };
+    let { boss, wait } = combat, time = combat.carry + studied;
+    while(team.length){
+      if(!boss){
+        if(time < wait){ wait -= time; time = 0; break; }
+        time -= wait; wait = 0;
+        boss = rollBoss(zone);
+        const tag = boss.tier==='legend'?'⭐ LEGENDARY ':boss.tier==='elite'?'✨ ELITE ':'';
+        r.log.push({ k:'spawn', tier:boss.tier, t:'A '+tag+'wild '+(boss.shiny?'✨shiny ':'')+boss.name+' appeared!' });
+        continue;
+      }
+      if(time < TICK_MS) break;
+      time -= TICK_MS;
+      const hit = strike(team, weather, now);
+      if(time < TICK_MS) r.events = hit.events;       // only the latest round is animated
+      boss = { ...boss, hp: boss.hp - hit.total };
+      if(boss.hp <= 0){ defeat(boss, zone, r); boss = null; wait = spawnGap(); }
     }
+    return { ...r, combat:{ boss, wait, carry: team.length ? time : 0 } };
   }
 
   function startEngine(){
     if(engineTimer || Persistence.status().state==='conflict' || document.visibilityState==='hidden') return;
-    const m = state.meadow;
-    if(m.patrolling && m.lastActive){
-      const awaySec = Math.min(4*3600, (Date.now()-m.lastActive)/1000);
-      if(awaySec > 60){
-        const { zone } = window.DATA.daySeed(getToday());
-        const avgFight = 165, kills = Math.floor(awaySec/avgFight);
-        if(kills>0){
-          const avgCoins = Math.round((zone.coinFloor+zone.coinCeil)/2 * 0.35 * 1.4);
-          const coins = kills*avgCoins;
-          pushLog('While away: '+kills+' encounters cleared  ·  +'+coins+'c','away');
-          set({ ...state, coins:state.coins+coins, meadow:{ ...m, coinsToday:m.coinsToday+coins, kills:m.kills+kills, lastActive:Date.now() } });
-        }
-      }
-    }
-    engineTimer = setInterval(tick, TICK_MS);
+    engineTimer = setInterval(settle, TICK_MS);
+    settle();
   }
   function stopEngine(){ if(engineTimer){ clearInterval(engineTimer); engineTimer=null; } }
+
+  // Keep the session current in every tab: on each Tracker report, on a
+  // heartbeat (also asks the Tracker again, in case a report was missed),
+  // and when another tab changes it.
+  Tracker.subscribe(()=>{ syncStudy().then(settle); subs.forEach(fn=>fn()); });
+  setInterval(()=>{ if(Study.isActive(study)){ Tracker.refresh(); syncStudy(); } }, HEARTBEAT_MS);
+  Study.onChange(refreshStudy);
+  syncStudy();
 
   // ---------------- derived ----------------
   function monPower(inst){
@@ -536,6 +736,7 @@
   }
 
   Store.startEngine = startEngine; Store.stopEngine = stopEngine;
+  Store.PRICES = PRICES;
   Store.daysAgo = daysAgo;
   Object.defineProperty(Store, 'TODAY', { get(){ return getToday(); } });
   window.Store = Store; window.useStore = useStore;

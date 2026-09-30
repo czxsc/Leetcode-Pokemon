@@ -19,6 +19,7 @@
   function App(){
     const [page, setPage] = useState('dashboard');
     const [demoNotice, setDemoNotice] = useState(()=> window.AppConfig.demo && !window.demoNoticeSeen());
+    const onboarded = window.useStore(s=>s.onboarded);
     useEffect(()=>{
       if(window.Store && window.Store.startEngine) window.Store.startEngine();
       const onResize = ()=> fit();
@@ -34,10 +35,11 @@
       };
     }, []);
     return e('div',{ style:{ position:'absolute', inset:0, display:'flex', flexDirection:'column', padding:16 } },
-      e(TopNav,{ page, setPage, onDemo:()=>setDemoNotice(true) }),
-      e('div',{ key:page, className:'fade-in', style:{ flex:1, minHeight:0 } },
+      // first run: name, photo and starting team before anything else
+      onboarded ? e(TopNav,{ page, setPage, onDemo:()=>setDemoNotice(true) }) : null,
+      onboarded ? e('div',{ key:page, className:'fade-in', style:{ flex:1, minHeight:0 } },
         (PAGES[page] || PAGES.dashboard)()
-      ),
+      ) : e('div',{ style:{ flex:1, minHeight:0 } }, e(window.Onboarding)),
       demoNotice ? e(window.DemoNotice,{ onClose:()=>setDemoNotice(false) }) : null,
       e(window.SaveBanner)
     );

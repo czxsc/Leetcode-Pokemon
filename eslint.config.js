@@ -22,4 +22,9 @@ export default defineConfig([
     files: ['server/**/*.js', 'vite.config.js'],
     languageOptions: { globals: globals.node },
   },
+  {
+    // the PokéLeet Tracker browser extension (loaded as-is, no build step)
+    files: ['extension/**/*.js'],
+    languageOptions: { globals: { ...globals.browser, ...globals.webextensions } },
+  },
 ])

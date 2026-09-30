@@ -36,6 +36,19 @@
       fontFamily:"'Silkscreen'", fontSize:size*0.5, color:'#7a5a14', flex:'none', ...style } }, 'C');
   }
 
+  // full-width search field for pickers: magnifier on the left, × to clear once there's text
+  function SearchBox({ value, onChange, placeholder, autoFocus }){
+    return e('div',{ className:'search-box' },
+      e('svg',{ className:'search-box-icon', width:14, height:14, viewBox:'0 0 14 14', 'aria-hidden':true, shapeRendering:'crispEdges' },
+        e('rect',{ x:2, y:0, width:6, height:2 }), e('rect',{ x:2, y:8, width:6, height:2 }),
+        e('rect',{ x:0, y:2, width:2, height:6 }), e('rect',{ x:8, y:2, width:2, height:6 }),
+        e('rect',{ x:9, y:9, width:2, height:2 }), e('rect',{ x:11, y:11, width:3, height:3 })),
+      e('input',{ className:'search-input', value, autoFocus, placeholder, spellCheck:false,
+        onChange:(ev)=>onChange(ev.target.value),
+        onKeyDown:(ev)=>{ if(ev.key==='Escape' && value){ ev.stopPropagation(); onChange(''); } } }),
+      value ? e('button',{ className:'search-box-clear', 'aria-label':'Clear search', onClick:()=>onChange('') }, '×') : null);
+  }
+
   function TypeTag({ type }){
     const c = (window.PixelMon.TYPE_COLOR && window.PixelMon.TYPE_COLOR[type]) || '#c9b78c';
     return e('span',{ className:'type-tag', style:{ background:c } }, type);
@@ -48,19 +61,19 @@
   // ---- top nav ----
   const TABS = [
     { id:'dashboard', label:'Dashboard', dot:'var(--sage)' },
-    { id:'gacha',     label:'Gacha',     dot:'var(--lav)' },
+    { id:'gacha',     label:'Summon',    dot:'var(--lav)' },
     { id:'quests',    label:'Quests',    dot:'var(--pink)' },
     { id:'recall',    label:'Recall',    dot:'var(--sky)' },
     { id:'team',      label:'Team',      dot:'var(--sage-deep)' },
     { id:'pokedex',   label:'Pok\u00e9dex',  dot:'var(--coin-deep)' },
     { id:'shop',      label:'Shop',      dot:'var(--coin)' },
-    { id:'map',       label:'Meadow',    dot:'var(--mint)' },
+    { id:'map',       label:'Focus',     dot:'var(--mint)' },
   ];
 
   function CurrencyCluster(){
     const st = window.useStore(s=>({ shards:s.shards, coins:s.coins }));
     return e('div',{ style:{ display:'flex', gap:8 } },
-      e('div',{ className:'cur-badge', title:'Pok\u00e9-Shards \u2014 spent on gacha' },
+      e('div',{ className:'cur-badge', title:'Pok\u00e9-Shards \u2014 spent on summons' },
         e(Shard,{ size:17 }), st.shards.toLocaleString()),
       e('div',{ className:'cur-badge', title:'Pok\u00e9-Coins \u2014 spent in the shop' },
         e(Coin,{ size:16 }), st.coins.toLocaleString())
@@ -112,13 +125,12 @@
     return e('div',{ className:'modal-veil', style:{ zIndex:85 }, onClick:close },
       e('div',{ className:'panel modal demo-notice', onClick:(ev)=>ev.stopPropagation() },
         e('div',{ className:'panel-title' }, e('span',{className:'dot'}), 'Welcome to the Pok\u00e9Leet demo'),
-        e('p',{}, 'Pok\u00e9Leet is a gamified LeetCode tracker: log the problems you solve, paste in your solutions, and earn Shards to collect Pok\u00e9mon, build a team and battle in the Meadow.'),
         e('div',{ className:'chip-card demo-warning' },
           e('div',{ className:'demo-warning-title' }, '\u26a0 This online version is for demo purposes only'),
           e('ul',{},
             e('li',{}, 'Progress is saved in this browser only \u2014 clearing site data, a private window, or another browser or device starts over.'),
             e('li',{}, 'Nothing is uploaded: there are no accounts, sync or backups here.'))),
-        e('p',{}, 'To use Pok\u00e9Leet for real, clone it from GitHub and run it on your computer. It saves everything to your own disk, including a folder of your solutions sorted by tag:'),
+        e('p',{}, 'To use Pok\u00e9Leet for real, clone it from GitHub and run it on your computer. It saves everything to your own disk:'),
         repo ? e('pre',{ className:'demo-cmd' }, `git clone ${repo}.git\ncd ${folder}\nnpm install\nnpm start`) : null,
         e('div',{ style:{ display:'flex', gap:10, justifyContent:'flex-end', alignItems:'center' } },
           repo ? e('a',{ className:'btn', href:repo, target:'_blank', rel:'noopener noreferrer' }, 'View on GitHub \u2197') : null,
@@ -220,6 +232,43 @@
     return e('pre',{ dangerouslySetInnerHTML:{ __html: highlight(code, language || 'python') } });
   }
 
-  Object.assign(window, { Pokeball, Shard, Coin, TypeTag, RarityTag, TopNav, CodeBlock, SaveBanner,
-    DemoNotice, demoNoticeSeen, usePersistenceStatus, NAV_TABS:TABS });
+  // Center-crop an uploaded photo to a small square JPEG so it stays light in the save file.
+  // (trainer avatar on the dashboard and in onboarding)
+  const AVATAR_PX = 192;
+  function shrinkPhoto(file){
+    return new Promise((resolve, reject)=>{
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = ()=>{
+        URL.revokeObjectURL(url);
+        const w = img.naturalWidth, h = img.naturalHeight, side = Math.min(w, h);
+        if(!side){ reject(new Error('That image looks empty.')); return; }
+        const px = Math.min(AVATAR_PX, side);
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = px;
+        const ctx = canvas.getContext('2d');
+        // JPEG has no transparency, so see-through parts get the frame's color
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--lav-lite').trim() || '#cabfee';
+        ctx.fillRect(0, 0, px, px);
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, (w-side)/2, (h-side)/2, side, side, 0, 0, px, px);
+        resolve(canvas.toDataURL('image/jpeg', 0.86));
+      };
+      img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('Couldn’t open that image — try a JPG, PNG or WebP.')); };
+      img.src = url;
+    });
+  }
+
+  // ---- item icon (Shop + Gacha): a pixel item sprite on a standard tile ----
+  // item: { sprite: pokemondb item slug, emoji: shown if the sprite can't load }
+  function ItemIcon({ item, size }){
+    const [broken, setBroken] = React.useState(false);
+    return e('div',{ className:'item-icon', style:{ width:size, height:size } },
+      broken ? e('span',{ style:{ fontSize:Math.round(size*.5) } }, item.emoji)
+        : e('img',{ src:`https://img.pokemondb.net/sprites/items/${item.sprite}.png`, alt:'', draggable:false,
+            width:Math.round(size*.8), height:Math.round(size*.8), onError:()=>setBroken(true) }));
+  }
+
+  Object.assign(window, { Pokeball, Shard, Coin, SearchBox, TypeTag, RarityTag, TopNav, CodeBlock, SaveBanner,
+    DemoNotice, demoNoticeSeen, usePersistenceStatus, shrinkPhoto, ItemIcon, NAV_TABS:TABS });
 })();

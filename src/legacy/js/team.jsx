@@ -101,8 +101,6 @@
               e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:7, color:'var(--ink)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' } }, sp.name),
               e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:7, color:'var(--ink-faint)' } }, 'Lv'+m.level));
           })),
-        e('div',{ style:{ fontSize:12, color:'var(--ink-faint)', lineHeight:1.5 } },
-          e('b',{},'Tap a member above'), ' to open its card \u2014 evolve, Mega-Evolve, Gigantamax, or switch forms. Tap a friend on the left to add/remove from the team.'),
         e('div',{ style:{ fontSize:12, color:'var(--ink-faint)', lineHeight:1.5, marginTop:'auto' } },
           'Power = each member\u2019s ', e('b',{},'level \u00d7 rarity'),
           ', summed, then scaled by your solved-problem multiplier (capped at 2\u00d7).')
