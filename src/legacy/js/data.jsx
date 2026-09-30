@@ -30,10 +30,27 @@
 
   const code = (s)=>s.replace(/^\n/,'').replace(/\n$/,'');
 
+  // Problem ids are content-derived slugs, NOT positional. Saved progress
+  // (solved / solveDates / claims / syncedPaths) is keyed by id, so an id that
+  // depended on definition order would silently rebind every user's history to
+  // the wrong problems the moment a problem was inserted mid-list.
+  // Renaming a problem still changes its id — add a MIGRATIONS entry in
+  // store.jsx when you do that.
+  const slugify = (name)=> name.toLowerCase()
+    .replace(/\+/g,' plus ')
+    .replace(/&/g,' and ')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'');
+
   // helper to build a problem. NOTE: the 4th arg is ignored — a fresh
   // account starts with NOTHING solved; progress is tracked in the store.
-  let _n=0;
-  const P = (cat,name,diff,solved,src)=>({ id:cat+'-'+(_n++), cat, name, diff, solved:false, code: src?code(src):'' });
+  const _seen = new Set();
+  const P = (cat,name,diff,solved,src)=>{
+    const id = cat+'-'+slugify(name);
+    if(_seen.has(id)) throw new Error('Duplicate problem id: '+id+' — rename one of the colliding problems.');
+    _seen.add(id);
+    return { id, cat, name, diff, solved:false, code: src?code(src):'' };
+  };
 
   const PROBLEMS = {
     arrays:[

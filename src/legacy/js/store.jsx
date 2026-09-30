@@ -5,8 +5,13 @@
    meadow combat with per-mon damage events, dated solve log.
 ===================================================================== */
 (function(){
-  const KEY = 'pokeleet_v5';
+  const KEY = 'pokeleet_save';
+  const LEGACY_KEYS = ['pokeleet_v5'];
+  // Any save we refuse to load is copied here instead of being dropped, so a
+  // bad migration or a version downgrade is always recoverable by hand.
+  const RESCUE_KEY = 'pokeleet_unreadable_save';
   const BACKUP_VERSION = 1;
+  const SAVE_VERSION = window.SaveMigrations.CURRENT_VERSION;
   const { OWNED, TEAM } = window.DATA;
   const PM = window.PixelMon;
   const RARITY = PM.RARITY;
@@ -90,40 +95,100 @@
       repo: { owner:'', name:'', branch:'main' },
       syncedPaths: {}, lastSync: 0,
       meadow: { patrolling:false, coinsToday:0, kills:0, boss:null, nextSpawnAt:0, lastActive:0 },
-      lastDay: getToday(), v: 5,
+      lastDay: getToday(), v: SAVE_VERSION,
     };
+  }
+
+  // Fill in fields added after a save was written. Purely additive — it never
+  // overwrites a value the player already has.
+  function applyDefaults(merged, raw){
+    if(typeof merged.megaStones!=='number') merged.megaStones = 2;
+    if(typeof merged.gmaxStones!=='number') merged.gmaxStones = 1;
+    if(typeof merged.epicPity!=='number') merged.epicPity = 0;
+    if(typeof merged.targetPity!=='number') merged.targetPity = 0;
+    if(!('guaranteedLegendary' in merged)) merged.guaranteedLegendary = merged.guaranteedTarget || null;
+    if(!('guaranteedEpic' in merged)) merged.guaranteedEpic = null;
+    if(typeof merged.legendaryTargetPity!=='number') merged.legendaryTargetPity = merged.targetPity || 0;
+    if(typeof merged.epicTargetPityCount!=='number') merged.epicTargetPityCount = 0;
+    if(!merged.claimDates) merged.claimDates = {};
+    if(typeof merged.recallToday!=='boolean') merged.recallToday = false;
+    if(!raw.demoEvo){ merged.owned = applyDemoCopies(merged.owned, merged.team); merged.demoEvo = true; }
+    merged.owned = migrateForms(merged.owned);
+    if(!raw.solveDates || !Object.keys(raw.solveDates).length) merged.solveDates = seedSolveDates();
+    delete merged.fetchedCode;
+    delete merged.guaranteedTarget;
+    delete merged.targetPity;
+    return merged;
+  }
+
+  function hydrate(parsed){
+    const base = seed();
+    const merged = Object.assign(base, parsed,
+      { meadow: Object.assign(seed().meadow, parsed.meadow||{}), repo: Object.assign(seed().repo, parsed.repo||{}) });
+    merged.v = SAVE_VERSION;
+    return rollDailyState(applyDefaults(merged, parsed));
+  }
+
+  // Health flags. Declared up here because load() runs before `Store` exists.
+  let loadWarning = null;
+  let persistError = null;
+
+  // Stash a save we could not load rather than letting it be overwritten.
+  function rescue(raw, reason){
+    try{
+      localStorage.setItem(RESCUE_KEY, JSON.stringify({ rescuedAt:new Date().toISOString(), reason, raw }));
+    }catch(e){ /* rescue is best-effort; never block startup on it */ }
+    loadWarning = reason;
+    console.warn('[PokeLeet] Could not load save: '+reason+
+      '\nThe unreadable save was copied to localStorage key "'+RESCUE_KEY+'" and can still be recovered.');
+  }
+
+  // Read the current key, falling back to keys used by earlier builds.
+  function readRaw(){
+    const keys = [KEY].concat(LEGACY_KEYS);
+    for(const k of keys){
+      try{ const raw = localStorage.getItem(k); if(raw) return { raw, key:k }; }catch(e){ /* storage unavailable */ }
+    }
+    return null;
   }
 
   let state = load();
   const subs = new Set();
+
   function load(){
-    try{ const raw = localStorage.getItem(KEY);
-      if(raw){ const s = JSON.parse(raw); if(s && s.v===5){
-        const merged = Object.assign(seed(), s,
-          { meadow: Object.assign(seed().meadow, s.meadow||{}), repo: Object.assign(seed().repo, s.repo||{}) });
-        // non-destructive migrations for older saves
-        if(typeof merged.megaStones!=='number') merged.megaStones = 2;
-        if(typeof merged.gmaxStones!=='number') merged.gmaxStones = 1;
-        if(typeof merged.epicPity!=='number') merged.epicPity = 0;
-        if(typeof merged.targetPity!=='number') merged.targetPity = 0;
-        if(!('guaranteedLegendary' in merged)) merged.guaranteedLegendary = merged.guaranteedTarget || null;
-        if(!('guaranteedEpic' in merged)) merged.guaranteedEpic = null;
-        if(typeof merged.legendaryTargetPity!=='number') merged.legendaryTargetPity = merged.targetPity || 0;
-        if(typeof merged.epicTargetPityCount!=='number') merged.epicTargetPityCount = 0;
-        if(!merged.claimDates) merged.claimDates = {};
-        if(typeof merged.recallToday!=='boolean') merged.recallToday = false;
-        if(!s.demoEvo){ merged.owned = applyDemoCopies(merged.owned, merged.team); merged.demoEvo = true; }
-        merged.owned = migrateForms(merged.owned);
-        if(!s.solveDates || !Object.keys(s.solveDates).length) merged.solveDates = seedSolveDates();
-        delete merged.fetchedCode;
-        delete merged.guaranteedTarget;
-        delete merged.targetPity;
-        return rollDailyState(merged);
-      } }
-    }catch(e){}
-    return rollDailyState(seed());
+    let found;
+    try{ found = readRaw(); }
+    catch(e){ rescue('', 'localStorage is unavailable: '+e.message); return rollDailyState(seed()); }
+    if(!found) return rollDailyState(seed());
+
+    let parsed;
+    try{ parsed = JSON.parse(found.raw); }
+    catch(e){ rescue(found.raw, 'Save is not valid JSON.'); return rollDailyState(seed()); }
+
+    const result = window.SaveMigrations.migrateState(parsed);
+    if(!result.ok){ rescue(found.raw, result.reason); return rollDailyState(seed()); }
+    if(result.from !== result.to){
+      console.info('[PokeLeet] Upgraded save v'+result.from+' -> v'+result.to+'.');
+    }
+    return hydrate(result.state);
   }
-  function persist(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+  // Write failures used to be swallowed, so a full quota meant the player kept
+  // playing against state that was never being saved. Surface it instead.
+  function persist(){
+    try{
+      localStorage.setItem(KEY, JSON.stringify(state));
+      persistError = null;
+      return true;
+    }catch(e){
+      const quota = e && (e.name==='QuotaExceededError' || e.name==='NS_ERROR_DOM_QUOTA_REACHED' || e.code===22);
+      persistError = quota
+        ? 'Browser storage is full — progress is NOT being saved. Export a backup now, then clear space.'
+        : 'Progress could not be saved ('+((e&&e.message)||'unknown error')+'). Export a backup now.';
+      console.error('[PokeLeet] '+persistError, e);
+      return false;
+    }
+  }
   function emit(){ persist(); subs.forEach(fn=>fn()); }
   function set(next){ state = next; emit(); }
 
@@ -329,14 +394,14 @@
     },
     importData(raw){
       let parsed;
-      try{ parsed = JSON.parse(raw); }catch(e){ throw new Error('Backup file is not valid JSON.'); }
+      try{ parsed = JSON.parse(raw); }
+      catch(err){ throw new Error('Backup file is not valid JSON.', { cause: err }); }
       const nextState = parsed && parsed.type==='pokeleet-backup' ? parsed.state : parsed;
-      if(!nextState || nextState.v !== 5) throw new Error('Backup format is not supported by this version.');
-      const merged = Object.assign(seed(), nextState,
-        { meadow: Object.assign(seed().meadow, nextState.meadow||{}), repo: Object.assign(seed().repo, nextState.repo||{}) });
-      merged.owned = migrateForms(merged.owned);
-      delete merged.fetchedCode;
-      set(rollDailyState(merged));
+      // Backups from older versions run through the same migration chain as
+      // on-disk saves, so an old export is still importable.
+      const result = window.SaveMigrations.migrateState(nextState);
+      if(!result.ok) throw new Error('Backup could not be imported: '+result.reason);
+      set(hydrate(result.state));
     },
 
     // ---- MEADOW control ----
@@ -526,6 +591,12 @@
 
   Store.startEngine = startEngine; Store.stopEngine = stopEngine;
   Store.daysAgo = daysAgo;
+  // Storage health, for the dashboard to surface. `persistError` is non-null
+  // whenever the last write failed; `loadWarning` is set when a save existed
+  // but could not be read (the raw copy is under RESCUE_KEY).
+  Object.defineProperty(Store, 'persistError', { get(){ return persistError; } });
+  Object.defineProperty(Store, 'loadWarning', { get(){ return loadWarning; } });
+  Store.RESCUE_KEY = RESCUE_KEY;
   Object.defineProperty(Store, 'TODAY', { get(){ return getToday(); } });
   window.Store = Store; window.useStore = useStore;
   window.Derived = { monPower, solvedCounts, weightedPoints, teamMultiplier,

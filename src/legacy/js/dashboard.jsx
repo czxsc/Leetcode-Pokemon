@@ -337,9 +337,27 @@
   const colStyle = { display:'flex', flexDirection:'column', height:'100%', minHeight:0 };
   const scrollBody = { flex:1, minHeight:0, overflowY:'auto', overflowX:'hidden', paddingRight:4 };
 
+  // Storage problems used to be invisible: a failed write just did nothing and
+  // the player kept going against state that was never saved. Make it loud.
+  function StorageBanner(){
+    window.useStore();
+    const msg = window.Store.persistError || window.Store.loadWarning;
+    if(!msg) return null;
+    const recoverable = !window.Store.persistError;
+    return e('div',{ style:{ position:'absolute', top:8, left:'50%', transform:'translateX(-50%)',
+        zIndex:60, maxWidth:'82%', padding:'8px 14px', borderRadius:8,
+        background:'var(--hard)', color:'#fff', fontFamily:"'Silkscreen'", fontSize:10,
+        lineHeight:1.6, textAlign:'center', boxShadow:'0 3px 10px rgba(0,0,0,.35)' } },
+      msg,
+      recoverable ? e('div',{ style:{ opacity:.85, marginTop:4 } },
+        'Previous save kept under localStorage key "'+window.Store.RESCUE_KEY+'".') : null
+    );
+  }
+
   function Dashboard(){
     const [sel, setSel] = useState('arrays');
     return e('div',{ style:{ display:'grid', gridTemplateColumns:'258px 1fr 318px', gap:14, height:'100%', minHeight:0 } },
+      e(StorageBanner),
       e(CategoryMenu,{ sel, setSel }),
       e(ProblemList,{ catId:sel }),
       e(TrainerCard)
