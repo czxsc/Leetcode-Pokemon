@@ -33,6 +33,39 @@ export const DEFAULT_TAGS = [
   { id: 'design', name: 'Design' },
 ]
 
+// LeetCode topic slug -> default tag id, for topics whose name differs.
+// Any other topic becomes a tag named after it (id from the name, the same
+// way a typed-in tag gets its id).
+const LEETCODE_TOPICS = {
+  'array': 'arrays',
+  'string': 'strings',
+  'monotonic-stack': 'stack',
+  'tree': 'trees',
+  'binary-tree': 'trees',
+  'binary-search-tree': 'trees',
+  'trie': 'tries',
+  'heap-priority-queue': 'heap',
+  'graph': 'graphs',
+  'breadth-first-search': 'bfs',
+  'depth-first-search': 'dfs',
+  'dynamic-programming': 'dp',
+  'geometry': 'math',
+}
+
+export function leetcodeTopicTag(topic) {
+  const name = oneLine(topic.name).slice(0, 40)
+  const id = LEETCODE_TOPICS[topic.slug] || slugify(name, 40)
+  return { id, name: name || id }
+}
+
+// "https://leetcode.com/problems/two-sum/description/" -> "two-sum".
+// null if the text isn't a LeetCode problem link.
+export function leetcodeSlug(text) {
+  const m = String(text || '').trim()
+    .match(/^(?:https?:\/\/)?(?:www\.)?leetcode\.com\/problems\/([a-z0-9-]+)/i)
+  return m ? m[1].toLowerCase() : null
+}
+
 // Folder for solved problems that have no tags.
 export const UNTAGGED_FOLDER = 'untagged'
 

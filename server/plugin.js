@@ -5,8 +5,10 @@
      GET /api/data            -> { progress, library, dataDir }
      PUT /api/progress        <- { rev, data }   -> { rev, savedAt }
      PUT /api/library         <- { rev, data }   -> { rev, savedAt, warning }
+     GET /api/leetcode?slug=  -> { problem }  (title, difficulty, tags...)
 ===================================================================== */
 import path from 'node:path'
+import { fetchLeetCodeProblem } from './leetcode.js'
 import { createStorage } from './storage.js'
 
 const MAX_BODY_BYTES = 20 * 1024 * 1024
@@ -44,6 +46,10 @@ function readJsonBody(req) {
 
 export function createApiMiddleware(storage) {
   async function handle(req, res, pathname) {
+    if (pathname === '/api/leetcode' && req.method === 'GET') {
+      const slug = new URL(req.url, 'http://localhost').searchParams.get('slug')
+      return send(res, 200, { problem: await fetchLeetCodeProblem(slug) })
+    }
     if (pathname === '/api/data' && req.method === 'GET') {
       const { progress, library } = await storage.load()
       return send(res, 200, { dataDir: storage.dataDir, progress, library })

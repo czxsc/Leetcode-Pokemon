@@ -517,10 +517,24 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
 .study-target:hover{ text-decoration:underline; }
 @keyframes livep{ 0%,100%{ opacity:.35; transform:scale(.8);} 50%{ opacity:1; transform:scale(1.1);} }
 
-/* shiny sparkle on sprites */
-.shiny-spark{ position:absolute; top:-2px; right:-2px; z-index:3; filter:drop-shadow(0 0 3px #ffe39a);
-  animation:sparkle 1.6s ease-in-out infinite; pointer-events:none; }
-@keyframes sparkle{ 0%,100%{ opacity:.5; transform:scale(.85) rotate(-8deg);} 50%{ opacity:1; transform:scale(1.15) rotate(8deg);} }
+/* shiny marker: pixel sparkle (PixelSparkle in pixelmon.jsx). Frames swap on hard steps,
+   like sprite animation: big -> mid -> small -> mid -> big, a tiny star blinking off-beat. */
+.px-spark{ position:absolute; z-index:3; pointer-events:none; line-height:0; }
+.px-spark.inline{ position:relative; display:inline-block; vertical-align:-1px; }
+.px-spark svg{ display:block; overflow:visible; }
+.px-spark g{ opacity:0; animation:1.6s steps(1,end) infinite; }
+.px-spark .f-big{ opacity:1; animation-name:pxs-big; }
+.px-spark .f-mid{ animation-name:pxs-mid; }
+.px-spark .f-small{ animation-name:pxs-small; }
+.px-spark .f-twin{ animation-name:pxs-twin; }
+.px-spark.still g{ animation:none; }
+@keyframes pxs-big{   0%{opacity:1} 40%{opacity:0} 90%{opacity:1} 100%{opacity:1} }
+@keyframes pxs-mid{   0%{opacity:0} 40%{opacity:1} 55%{opacity:0} 75%{opacity:1} 90%{opacity:0} 100%{opacity:0} }
+@keyframes pxs-small{ 0%{opacity:0} 55%{opacity:1} 75%{opacity:0} 100%{opacity:0} }
+@keyframes pxs-twin{  0%{opacity:0} 30%{opacity:1} 60%{opacity:0} 100%{opacity:0} }
+@media (prefers-reduced-motion: reduce){
+  .px-spark .f-big, .px-spark .f-mid, .px-spark .f-small, .px-spark .f-twin{ animation:none; }
+}
 
 /* evolution progress dots */
 .evo-dots{ display:flex; gap:3px; justify-content:center; }

@@ -28,9 +28,9 @@
         if(inst.shiny) return 'Already shiny';
         if(st.owned.some(o=> o.sp===inst.sp && o.shiny)) return 'You already have a shiny one';
         return null; },
-      info:()=> ({ text:'Will become ✨ shiny' }),
+      info:()=> ({ text:'Will become shiny' }),
       buy:(iid)=> window.Store.shinyCandy(iid),
-      done:(inst, sp)=> '✨ '+sp.name+' is now shiny!' },
+      done:(inst, sp)=> sp.name+' is now shiny!' },
   ].map(withPrice);
   const BAG_ITEMS = [
     { id:'snack', name:'Team Snack', sprite:'lava-cookie', emoji:'🍮', btn:'green',
@@ -75,7 +75,7 @@
         boxShadow: selected?'0 0 10px var(--lav-lite)':'none' } },
       e(Creature,{ inst, size:42, bob:selected }),
       e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' } }, sp.name),
-      e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)' } }, (inst.shiny?'✨':'')+'Lv'+inst.level));
+      e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)' } }, 'Lv'+inst.level));
   }
 
   // ---- "feed to" picker for friend items ----
@@ -107,7 +107,7 @@
         e('div',{ style:{ background:RARITY[sp.rarity].glow, borderRadius:10, padding:4, flex:'none' } }, e(Creature,{ inst:target, size:52, bob:true })),
         e('div',{ style:{ flex:1, minWidth:0 } },
           e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:12, color:'var(--ink)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' } },
-            (target.shiny?'✨ ':'')+sp.name+'  ·  Lv '+target.level),
+            sp.name+'  ·  Lv '+target.level),
           info.bar!=null ? e('div',{ className:'expbar', style:{ height:8, margin:'6px 0 4px', maxWidth:220 } },
             e('i',{ style:{ width:Math.min(100, Math.round(info.bar*100))+'%' } })) : null,
           e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)', marginTop: info.bar!=null?0:5 } }, info.text)));

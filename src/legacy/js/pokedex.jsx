@@ -24,7 +24,8 @@
         border:'2px solid '+(owned?r.color:'var(--card-line)') } },
       e('span',{ style:{ position:'absolute', top:5, right:5, width:8, height:8, borderRadius:'50%',
         background: owned?r.color:'#c8bfa8', border:'1px solid rgba(0,0,0,.12)' } }),
-      shinyOwned ? e('span',{ title:'Shiny collected', style:{ position:'absolute', top:3, left:4, fontSize:10, filter:'drop-shadow(0 0 2px #ffe39a)' } }, '\u2728') : null,
+      // the sprite carries the sparkle when drawn shiny; otherwise mark the corner
+      shinyOwned && !renderShiny ? e(PixelSparkle,{ still:true, title:'Shiny collected', style:{ top:3, left:3 } }) : null,
       e('div',{ className: owned?'':'dex-locked', style:{ display:'inline-block' } },
         e(Creature,{ species:sp.id, shiny:renderShiny, size:46, bob:false })),
       e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, marginTop:2, color: owned?'var(--ink)':'var(--ink-faint)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' } },
@@ -85,7 +86,7 @@
           e('div',{ className:'panel-title', style:{ margin:0 } }, e('span',{className:'dot'}), 'Pok\u00e9dex'),
           e('div',{ style:{ display:'flex', gap:8, marginTop:8 } },
             e(StatChip,{ icon:'\ud83d\udcd8', label:'CAUGHT', have:ownedTotal, total:all.length, color:'var(--sage-deep)' }),
-            e(StatChip,{ icon:'\u2728', label:'SHINY', have:forms.shiny.size, total:all.length, color:'var(--coin-deep)' }),
+            e(StatChip,{ icon:e(PixelSparkle,{ inline:true, still:true }), label:'SHINY', have:forms.shiny.size, total:all.length, color:'var(--coin-deep)' }),
             e(StatChip,{ icon:'\ud83d\udd2e', label:'MEGA', have:forms.mega.size, total:megaPossible, color:'var(--lav-deep)' }),
             e(StatChip,{ icon:'\ud83c\udf00', label:'G-MAX', have:forms.gmax.size, total:gmaxPossible, color:'var(--pink-deep)' }))),
         e('div',{ style:{ textAlign:'right' } },
@@ -97,7 +98,7 @@
       e('div',{ style:{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', flex:'none' } },
         GENS.map(GenBtn),
         e('div',{ style:{ flex:1 } }),
-        FilterBtn('all','All'), FilterBtn('shiny','\u2728 Shiny'), FilterBtn('mega','\ud83d\udd2e Mega'), FilterBtn('gmax','\ud83c\udf00 G-Max')),
+        FilterBtn('all','All'), FilterBtn('shiny', e(React.Fragment,null, e(PixelSparkle,{ inline:true, still:true }), ' Shiny')), FilterBtn('mega','\ud83d\udd2e Mega'), FilterBtn('gmax','\ud83c\udf00 G-Max')),
       // grid
       e('div',{ className:'panel', style:{ flex:1, minHeight:0, display:'flex', flexDirection:'column' } },
         e('div',{ style:{ display:'flex', alignItems:'center', marginBottom:10 } },
@@ -106,7 +107,7 @@
         e('div',{ style:{ flex:1, minHeight:0, overflowY:'auto', paddingRight:4 } },
           list.length===0
             ? e('div',{ style:{ textAlign:'center', color:'var(--ink-faint)', fontFamily:"'Silkscreen'", fontSize:11, padding:40 } },
-                filter==='shiny' ? 'No shiny '+'Pok\u00e9mon caught in this generation yet \u2014 pull some \u2728shinies!' : 'None in this generation.')
+                filter==='shiny' ? 'No shiny '+'Pok\u00e9mon caught in this generation yet \u2014 pull some shinies!' : 'None in this generation.')
             : e('div',{ style:{ display:'grid', gridTemplateColumns:'repeat(9,1fr)', gap:8 } },
                 list.map(s=> e(DexCell,{ key:s.id, sp:s, owned: ownedSet.has(s.id),
                   shinyOwned: forms.shiny.has(s.id), megaOn: forms.mega.has(s.id), gmaxOn: forms.gmax.has(s.id),

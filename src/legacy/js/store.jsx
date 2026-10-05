@@ -68,8 +68,16 @@
   const BALL_ITEM = { boost:'rateBooster', great:'greatBall', ultra:'ultraBall' };
   const seedItems = ()=> Object.fromEntries(GACHA_ITEMS.map(k=> [k, 0]));
   // Shop prices in Coins (the Shop page reads these too)
-  const PRICES = { candy:400, snack:900, mega:6000, gmax:6000, shiny:10000,
-    greatBall:1500, genTicket:2000, rateBooster:2500, ultraBall:4000 };
+  const PRICES = { candy:200, snack:450, mega:3000, gmax:3000, shiny:5000,
+    greatBall:750, genTicket:1000, rateBooster:1250, ultraBall:2000 };
+  // Shards for releasing a friend: 50 x rarity mult (50 / 100 / 150 / 250), doubled when shiny.
+  // Always well under a 400-Shard draw, so releasing can't be farmed.
+  const RELEASE_BASE = 50;
+  function releaseValue(inst){
+    const sp = inst && PM.byId(inst.sp);
+    if(!sp) return 0;
+    return RELEASE_BASE * PM.RARITY[sp.rarity].mult * (inst.shiny ? 2 : 1);
+  }
 
   function seedProgress(){
     const owned = starterOwned();
@@ -332,6 +340,17 @@
       set({ ...state, owned: state.owned.map(o=> o.iid===iid?{ ...o, sp:evo, copies:0, form:null, unlocked:{} }:o),
         stats:{ ...state.stats, evolutions:state.stats.evolutions+1 } });
       return true;
+    },
+
+    // ---- release friends for Shards ----
+    // Team members are skipped, and at least one friend always stays. Returns the Shards paid.
+    releaseCreatures(iids){
+      const pick = new Set((iids||[]).filter(iid=> !state.team.includes(iid)));
+      const gone = state.owned.filter(o=> pick.has(o.iid));
+      if(!gone.length || gone.length>=state.owned.length) return 0;
+      const shards = gone.reduce((n,o)=> n+releaseValue(o), 0);
+      set({ ...state, owned: state.owned.filter(o=> !pick.has(o.iid)), shards: state.shards+shards });
+      return shards;
     },
 
     completeQuest(id){ if(state.quests[id]) return; set({ ...state, quests:{ ...state.quests,[id]:true } }); },
@@ -638,7 +657,7 @@
         time -= wait; wait = 0;
         boss = rollBoss(zone);
         const tag = boss.tier==='legend'?'⭐ LEGENDARY ':boss.tier==='elite'?'✨ ELITE ':'';
-        r.log.push({ k:'spawn', tier:boss.tier, t:'A '+tag+'wild '+(boss.shiny?'✨shiny ':'')+boss.name+' appeared!' });
+        r.log.push({ k:'spawn', tier:boss.tier, t:'A '+tag+'wild '+(boss.shiny?'shiny ':'')+boss.name+' appeared!' });
         continue;
       }
       if(time < TICK_MS) break;
@@ -737,6 +756,7 @@
 
   Store.startEngine = startEngine; Store.stopEngine = stopEngine;
   Store.PRICES = PRICES;
+  Store.releaseValue = releaseValue;
   Store.daysAgo = daysAgo;
   Object.defineProperty(Store, 'TODAY', { get(){ return getToday(); } });
   window.Store = Store; window.useStore = useStore;

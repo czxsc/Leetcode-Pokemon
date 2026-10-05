@@ -115,13 +115,13 @@
         boxShadow:'0 0 0 3px rgba(255,255,255,.5), 0 0 18px '+rar.glow } },
       // starts as the card finishes popping in
       sp.rarity==='legendary' ? LegendFx({ big, delay:i*0.09 + 0.3 }) : null,
-      r.isNew ? e('div',{ style:badge('var(--pink)','var(--pink-deep)') }, r.shiny?'\u2728NEW':'NEW!')
+      r.isNew ? e('div',{ style:badge('var(--pink)','var(--pink-deep)') }, 'NEW!')
         : e('div',{ style:badge('var(--sky)','#5f93a6') }, 'DUPE'),
       r.pity ? e('div',{ style:corner('var(--coin)','var(--coin-line)','#7a5a14') }, 'PITY') : null,
       r.target ? e('div',{ style:corner('var(--sage)','var(--sage-deep)','#3e5226') }, r.targetTier==='epic'?'EPIC TARGET':'LEGEND TARGET') : null,
       e('div',{ style:{ background:rar.glow, borderRadius:10, padding:big?8:6, display:'inline-block', marginBottom:6 } },
         e(Creature,{ species:r.speciesId, shiny:r.shiny, size, bob:true })),
-      e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:big?13:10, color:'var(--ink)', whiteSpace:'nowrap' } }, (r.shiny?'\u2728':'')+sp.name),
+      e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:big?13:10, color:'var(--ink)', whiteSpace:'nowrap' } }, sp.name),
       e('div',{ style:{ margin:'5px 0 0' } }, e(RarityTag,{ rarity:sp.rarity })),
       r.used && r.used.length ? e('div',{ className:'used-items' },
         r.used.map(id=> e('span',{ key:id }, id==='genTicket' ? '🎟️ '+genLabel(r.usedGen) : ITEM_BY_ID[id].name))) : null,
@@ -187,7 +187,7 @@
             e('span',{ style:{ width:9, height:9, borderRadius:'50%', background:RARITY[k].color, border:'1px solid rgba(0,0,0,.15)' } }),
             e('span',{ style:{ flex:1, fontSize:13, color:'var(--ink)' } }, RARITY[k].label),
             e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:11, color:'var(--ink-soft)' } }, v+'%'))),
-        e('div',{ style:para }, e('b',{},'✨Shiny'), ` chance is ${Math.round(PM.SHINY_CHANCE*100)}% on every draw. `,
+        e('div',{ style:para }, e('b',{}, e(PixelSparkle,{ inline:true, still:true }), ' Shiny'), ` chance is ${Math.round(PM.SHINY_CHANCE*100)}% on every draw. `,
           'A x5 Draw is simply five single draws for the same price.'),
         head('PITY'),
         e('div',{ style:para }, e('b',{},'Epic+ pity'), ` — at most ${EPIC_PITY} draws without an epic or legendary; the guaranteed pull is usually epic, sometimes legendary.`),

@@ -89,6 +89,8 @@
     const [language, setLanguage] = useState(start.language);
     const [url, setUrl] = useState(start.url);
     const [code, setCode] = useState(start.code);
+    const [lookup, setLookup] = useState(null);          // { busy } | { ok, text } while finding on LeetCode
+    const lookupSeq = useRef(0);
 
     const allTags = window.Store.tags().concat(newTags);
     const slug = Catalog.slugify(title);
@@ -106,6 +108,50 @@
       if(!tags.includes(id)) setTags([...tags, id]);
       setTagDraft('');
     }
+    // Fill in title, difficulty and tags from a LeetCode link. The local
+    // server does the asking (LeetCode blocks calls from other pages), so
+    // it only works in the full version.
+    async function find(link){
+      const leetSlug = Catalog.leetcodeSlug(link);
+      if(!leetSlug){ setLookup({ ok:false, text:'Enter a LeetCode problem link, like https://leetcode.com/problems/two-sum/' }); return; }
+      if(window.Persistence.mode!=='disk'){ setLookup({ ok:false, text:'Find needs the full version of PokéLeet (it asks LeetCode through your local server). Fill the details in by hand here.' }); return; }
+      const seq = ++lookupSeq.current;
+      setLookup({ busy:true, text:'Looking it up on LeetCode…' });
+      let q;
+      try{
+        const res = await fetch('/api/leetcode?slug='+encodeURIComponent(leetSlug), { headers:{ Accept:'application/json' } });
+        const body = await res.json().catch(()=>null);
+        if(!res.ok || !body || !body.problem) throw new Error((body && body.error) || `Lookup failed (HTTP ${res.status}).`);
+        q = body.problem;
+      }catch(err){
+        if(seq===lookupSeq.current) setLookup({ ok:false, text: err instanceof TypeError ? 'Couldn’t reach the PokéLeet server — is it still running?' : err.message });
+        return;
+      }
+      if(seq!==lookupSeq.current) return;
+
+      const found = [];
+      for(const topic of q.tags){
+        const t = Catalog.leetcodeTopicTag(topic);
+        if(t.id && !found.some(f=>f.id===t.id)) found.push(t);
+      }
+      const known = window.Store.tags();
+      const created = found.filter(t=> !known.some(k=>k.id===t.id)).map(t=>({ ...t, custom:true }));
+      setTitle(q.title.slice(0,120));
+      if(Catalog.DIFFICULTIES.includes(q.difficulty)) setDifficulty(q.difficulty);
+      setUrl(q.url);
+      setTags(found.map(t=>t.id));
+      setNewTags(prev=> prev.concat(created.filter(t=> !prev.some(p=>p.id===t.id))));
+      const extra = [
+        created.length ? `${created.length} new tag${created.length===1?'':'s'} (${created.map(t=>t.name).join(', ')}) will be added when you save` : '',
+        q.paidOnly ? 'this is a Premium problem' : '',
+      ].filter(Boolean).join('; ');
+      setLookup({ ok:true, text:`Found #${q.number} ${q.title}${extra ? ' — '+extra : ''}.` });
+    }
+    function onUrlPaste(ev){
+      const text = ev.clipboardData && ev.clipboardData.getData('text');
+      if(Catalog.leetcodeSlug(text)) find(text);
+    }
+
     function save(){
       if(!canSave) return;
       const ids = tags.filter(id=> allTags.some(t=>t.id===id)).map(id=>{
@@ -147,12 +193,17 @@
             e('div',{ className:'seg' }, Catalog.DIFFICULTIES.map(d=> e('button',{ key:d, type:'button',
               className:'seg-btn '+d.toLowerCase()+(difficulty===d?' on':''), onClick:()=>setDifficulty(d) }, d))))),
         clash ? e('div',{ className:'form-error' }, `You already have “${clash.title}” — edit that one instead.`) : null,
-        e('div',{ style:{ display:'flex', gap:12 } },
-          e('div',{ className:'field', style:{ flex:1 } }, e('label',{},'Link (optional)'),
-            e('input',{ value:url, placeholder:'https://leetcode.com/problems/two-sum/', onChange:(ev)=>setUrl(ev.target.value) })),
-          e('div',{ className:'field', style:{ width:160 } }, e('label',{},'Language'),
-            e('select',{ value:language, onChange:(ev)=>setLanguage(ev.target.value) },
-              Catalog.LANGUAGES.map(l=> e('option',{ key:l.id, value:l.id }, l.name))))),
+        e('div',{ className:'field' }, e('label',{},'LeetCode Link (optional)'),
+          e('div',{ style:{ display:'flex', gap:8 } },
+            e('input',{ value:url, placeholder:'https://leetcode.com/problems/two-sum/', style:{ flex:1, minWidth:0 },
+              onChange:(ev)=>setUrl(ev.target.value), onPaste:onUrlPaste,
+              onKeyDown:(ev)=>{ if(ev.key==='Enter'){ ev.preventDefault(); find(url); } } }),
+            e('button',{ className:'btn', type:'button', disabled:!url.trim() || !!(lookup && lookup.busy),
+              title:'Fill in the title, difficulty and tags from LeetCode', onClick:()=>find(url) },
+              lookup && lookup.busy ? 'Finding…' : 'Find')),
+          lookup && !lookup.busy
+            ? e('div',{ style:{ fontSize:13, lineHeight:1.5, color: lookup.ok?'var(--sage-deep)':'var(--hard)' } }, (lookup.ok?'✔ ':'✖ ')+lookup.text)
+            : null),
         e('div',{ className:'field' }, e('label',{},'Tags'),
           e('div',{ className:'tag-picker' },
             allTags.map(t=> e('button',{ key:t.id, type:'button', className:'tag-toggle'+(tags.includes(t.id)?' on':''),
@@ -162,8 +213,13 @@
               onChange:(ev)=>setTagDraft(ev.target.value),
               onKeyDown:(ev)=>{ if(ev.key==='Enter'){ ev.preventDefault(); addDraftTag(); } } }),
             e('button',{ className:'iconbtn', type:'button', disabled:!Catalog.slugify(tagDraft,40), onClick:addDraftTag }, '+ Add Tag'))),
-        e('div',{ className:'field' }, e('label',{},'Solution'),
-          e('textarea',{ className:'code-input', value:code, spellCheck:false, rows:7,
+        e('div',{ className:'field' },
+          e('div',{ style:{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 } },
+            e('label',{ htmlFor:'solution-code' },'Solution'),
+            e('select',{ value:language, title:'Language', 'aria-label':'Language', style:{ fontSize:13, padding:'4px 6px' },
+              onChange:(ev)=>setLanguage(ev.target.value) },
+              Catalog.LANGUAGES.map(l=> e('option',{ key:l.id, value:l.id }, l.name)))),
+          e('textarea',{ id:'solution-code', className:'code-input', value:code, spellCheck:false, rows:7,
             placeholder:'Paste your accepted solution here…',
             onChange:(ev)=>setCode(ev.target.value), onKeyDown:onCodeKey })),
         e('div',{ style:{ ...hintStyle, marginBottom:12 } }, where),
@@ -518,7 +574,7 @@
                 : (megaCap && !m.form) ? e('span',{ title:'Can Mega-Evolve', style:{ position:'absolute', top:-5, right:-4, width:13, height:13, borderRadius:'50%', background:'var(--lav)', border:'2px solid #fff' } })
                 : null,
               e(Creature,{ inst:m, size:42, bob:true }),
-              e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink)', marginTop:2, ...ellipsis } }, (m.shiny||m.form?'✨':'')+sp.name),
+              e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink)', marginTop:2, ...ellipsis } }, sp.name),
               e('div',{ style:{ fontFamily:"'Silkscreen'", fontSize:8, color:'var(--ink-faint)', marginBottom:3 } }, 'Lv'+m.level+' · ⚔'+window.Derived.monPower(m)),
               e('div',{ className:'expbar' }, e('i',{ style:{ width:Math.round(m.exp/need*100)+'%' } })));
           })

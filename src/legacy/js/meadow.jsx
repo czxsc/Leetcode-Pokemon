@@ -163,7 +163,7 @@
               e('div',{ style:{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginBottom:4, flexWrap:'wrap' } },
                 boss.tier!=='normal' ? e('span',{ className:'type-tag', style:{ background: boss.tier==='legend'?'var(--coin)':'var(--lav)', color:'#fff', fontSize:8 } }, boss.tier==='legend'?'⭐ LEGENDARY':'✨ ELITE') : null,
                 e('span',{ className:'type-tag', style:{ background:RARITY[boss.rarity].color, color:'#fff', fontSize:8 } }, RARITY[boss.rarity].label),
-                e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:11, color:'var(--wood-dark)', textShadow:'0 1px 0 #fff' } }, (boss.shiny?'✨':'')+boss.name+'  Lv'+boss.level)),
+                e('span',{ style:{ fontFamily:"'Silkscreen'", fontSize:11, color:'var(--wood-dark)', textShadow:'0 1px 0 #fff' } }, boss.name+'  Lv'+boss.level)),
               e('div',{ className:'hpbar' }, e('i',{ style:{ width:Math.max(0, boss.hp/boss.maxHp*100)+'%' } })))
           ) : null,
 

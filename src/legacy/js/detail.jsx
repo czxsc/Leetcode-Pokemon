@@ -85,7 +85,7 @@
     const tagRow = e('div',{ style:{ display:'flex', flexWrap:'wrap', gap:6, justifyContent:'center', margin:'8px 0 2px' } },
       sp.types.map(t=> e(TypeTag,{ key:t, type:t })),
       e(DetailTag,{ label:'LV '+inst.level, bg:'var(--cream-2)', color:'var(--ink-soft)' }),
-      inst.shiny ? e(DetailTag,{ label:'\u2728 SHINY', bg:'var(--coin)', color:'#7a5a14', border:'var(--coin-line)' }) : null,
+      inst.shiny ? e(DetailTag,{ label:e(React.Fragment,null, e(PixelSparkle,{ inline:true, still:true }), ' SHINY'), bg:'var(--coin)', color:'#7a5a14', border:'var(--coin-line)' }) : null,
       sp.mega ? e(DetailTag,{ label: inst.form==='mega'?'\u2b50 MEGA':'MEGA',
         bg: inst.form==='mega'?'var(--lav)':'#d6cdbb', color: inst.form==='mega'?'#fff':'#8a8170',
         border: inst.form==='mega'?'var(--lav-deep)':'rgba(124,90,61,.25)', muted: inst.form!=='mega' }) : null,
@@ -121,18 +121,18 @@
           fontFamily:"'Silkscreen'", fontSize:14, color:'var(--ink-faint)', background:'transparent', border:'none', cursor: anim?'default':'pointer', padding:4 } }, '\u00d7'),
 
         // sprite stage
-        e('div',{ style:{ display:'inline-block', background:rar.glow, borderRadius:18, padding:18, marginBottom:4,
+        e('div',{ style:{ display:'inline-block', background:rar.glow, borderRadius:18, padding:20, marginBottom:4,
           boxShadow:'inset 0 2px 0 rgba(255,255,255,.5), 0 0 0 3px rgba(255,255,255,.4)' } },
           e('div',{ className:'evo-stage'+(anim?' go':'') },
             anim ? e('div',{ className:'evo-burst' }) : null,
             anim ? e('div',{ className:'evo-ring' }) : null,
             e('div',{ className:'evo-mon', style:{ position:'relative', zIndex:1 } },
-              e(Creature,{ inst, size:132, bob:!anim })),
+              e(Creature,{ inst, size:120, bob:!anim, fill:true })),
             sparks
           )),
 
         e('div',{ className:'pixel-font', style:{ fontSize:17, color:'var(--wood-dark)', marginTop:4 } },
-          (inst.shiny?'\u2728 ':'')+(inst.form?PM.formName(sp,inst.form):sp.name)),
+          inst.form?PM.formName(sp,inst.form):sp.name),
         e('div',{ style:{ marginTop:6 } }, e(RarityTag,{ rarity:sp.rarity })),
         tagRow,
 
