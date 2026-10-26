@@ -111,6 +111,16 @@ describe('postgres library store', () => {
     })
   })
 
+  it('reads and writes large libraries in pages that fit the Data API limits', async () => {
+    const store = createPostgresLibraryStore(await postgres())
+    // 40 problems with 60 KB of code each: ~2.4 MB, several pages each way
+    const problems = Array.from({ length: 40 }, (_, i) =>
+      problem(`big${i}`, { code: `# ${i}\n` + 'x = 1\n'.repeat(10_000), tags: ['dp', `t${i}`] }),
+    )
+    await store.save('u', { problems, customTags: [] }, 0)
+    expect((await store.load('u'))!.data.problems).toEqual(problems)
+  })
+
   it('handles libraries larger than one insert batch', async () => {
     const store = createPostgresLibraryStore(await postgres())
     const problems = Array.from({ length: 250 }, (_, i) => problem(`p${i}`))

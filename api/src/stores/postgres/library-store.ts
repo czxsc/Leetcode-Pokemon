@@ -5,7 +5,7 @@
    revision, and writes only what changed: new or edited problems,
    deleted ones, their tags, and the custom tags.
 ===================================================================== */
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, between, eq, inArray, sql } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type { Library, Problem } from '../../../../shared/library.ts'
 import { ConflictError, type DocumentStore } from '../../documents.ts'
@@ -15,7 +15,10 @@ import { customTags, libraries, problems, problemTags } from './schema.ts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Db = PgDatabase<PgQueryResultHKT, any>
 
-const CHUNK = 100 // rows per INSERT, to stay well inside driver parameter limits
+// The RDS Data API caps requests at 4 MiB and responses at 1 MiB, and a
+// problem's code can be large: reads and writes go in pages sized by bytes.
+const PAGE_BYTES = 400_000
+const PAGE_ROWS = 200
 
 type ProblemRow = typeof problems.$inferSelect
 
@@ -63,23 +66,72 @@ function sqlExcluded(column: string) {
   return sql.raw(`excluded."${column}"`)
 }
 
-function chunks<T>(list: T[]): T[][] {
+// Splits items into consecutive pages of at most PAGE_ROWS items and about PAGE_BYTES.
+function pages<T>(items: T[], bytes: (item: T) => number): T[][] {
   const out: T[][] = []
-  for (let i = 0; i < list.length; i += CHUNK) out.push(list.slice(i, i + CHUNK))
+  let page: T[] = []
+  let size = 0
+  for (const item of items) {
+    const n = bytes(item)
+    if (page.length && (size + n > PAGE_BYTES || page.length >= PAGE_ROWS)) {
+      out.push(page)
+      page = []
+      size = 0
+    }
+    page.push(item)
+    size += n
+  }
+  if (page.length) out.push(page)
   return out
 }
 
+const rowBytes = (r: { code: string; title: string; url: string }) =>
+  r.code.length * 3 + r.title.length * 3 + r.url.length + 300 // worst case UTF-8, plus fields
+
 async function readLibrary(db: Db, userId: string) {
-  const rows = await db
-    .select()
+  // first just the sizes, then the problems page by page
+  const sizes = await db
+    .select({
+      position: problems.position,
+      bytes:
+        sql<number>`octet_length(${problems.code}) + octet_length(${problems.title}) + octet_length(${problems.url}) + 300`.mapWith(
+          Number,
+        ),
+    })
     .from(problems)
     .where(eq(problems.userId, userId))
     .orderBy(asc(problems.position))
-  const tagRows = await db
-    .select({ problemId: problemTags.problemId, tagId: problemTags.tagId })
-    .from(problemTags)
-    .where(eq(problemTags.userId, userId))
-    .orderBy(asc(problemTags.problemId), asc(problemTags.position))
+  const rows: ProblemRow[] = []
+  const tagRows: { problemId: string; tagId: string }[] = []
+  for (const page of pages(sizes, (s) => s.bytes)) {
+    const chunk = await db
+      .select()
+      .from(problems)
+      .where(
+        and(
+          eq(problems.userId, userId),
+          between(problems.position, page[0].position, page[page.length - 1].position),
+        ),
+      )
+      .orderBy(asc(problems.position))
+    rows.push(...chunk)
+    if (!chunk.length) continue
+    tagRows.push(
+      ...(await db
+        .select({ problemId: problemTags.problemId, tagId: problemTags.tagId })
+        .from(problemTags)
+        .where(
+          and(
+            eq(problemTags.userId, userId),
+            inArray(
+              problemTags.problemId,
+              chunk.map((r) => r.id),
+            ),
+          ),
+        )
+        .orderBy(asc(problemTags.problemId), asc(problemTags.position))),
+    )
+  }
   const custom = await db
     .select({ id: customTags.id, name: customTags.name })
     .from(customTags)
@@ -142,7 +194,7 @@ export function createPostgresLibraryStore(db: Db): DocumentStore<Library> {
             .where(and(eq(problems.userId, userId), inArray(problems.id, removed)))
         }
         const changed = next.filter((r) => !old.has(r.id) || !sameRow(r, old.get(r.id)!))
-        for (const batch of chunks(changed)) {
+        for (const batch of pages(changed, rowBytes)) {
           await tx
             .insert(problems)
             .values(batch)
@@ -180,14 +232,14 @@ export function createPostgresLibraryStore(db: Db): DocumentStore<Library> {
           const tagRows = retag.flatMap((p) =>
             p.tags.map((tagId, position) => ({ userId, problemId: p.id, tagId, position })),
           )
-          for (const batch of chunks(tagRows)) await tx.insert(problemTags).values(batch)
+          for (const batch of pages(tagRows, () => 100)) await tx.insert(problemTags).values(batch)
         }
 
         // custom tags: small list, replaced whole when it changes
         if (!sameList(library.customTags, before.custom)) {
           await tx.delete(customTags).where(eq(customTags.userId, userId))
           const rows = library.customTags.map((t, position) => ({ userId, ...t, position }))
-          for (const batch of chunks(rows)) await tx.insert(customTags).values(batch)
+          for (const batch of pages(rows, () => 200)) await tx.insert(customTags).values(batch)
         }
         return { rev, savedAt: savedAt.toISOString() }
       }),
