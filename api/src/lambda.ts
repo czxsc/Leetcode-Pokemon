@@ -7,7 +7,7 @@
 ===================================================================== */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
-import { handle, type LambdaEvent } from 'hono/aws-lambda'
+import { handle } from 'hono/aws-lambda'
 import { createApp } from './app.ts'
 import { fetchLeetCodeProblem } from './leetcode.ts'
 import { createDynamoStore } from './stores/dynamo-store.ts'
@@ -18,6 +18,11 @@ function env(name: string): string {
   const value = process.env[name]
   if (!value) throw new Error(`Missing environment variable ${name}`)
   return value
+}
+
+// The part of an API Gateway (HTTP API, JWT authorizer) event we read.
+interface LambdaEnv {
+  event?: { requestContext?: { authorizer?: { jwt?: { claims?: Record<string, unknown> } } } }
 }
 
 const app = createApp({
@@ -39,14 +44,11 @@ const app = createApp({
       ),
     ),
   },
+  // API Gateway already checked the token; its claims arrive with the event.
   identify: (c) => {
-    const event = (c.env as { event?: LambdaEvent } | undefined)?.event
-    const claims =
-      event && 'requestContext' in event && 'authorizer' in event.requestContext
-        ? (event.requestContext.authorizer as { jwt?: { claims?: Record<string, unknown> } }).jwt
-            ?.claims
-        : undefined
-    return typeof claims?.sub === 'string' ? claims.sub : null
+    const sub = (c.env as LambdaEnv | undefined)?.event?.requestContext?.authorizer?.jwt?.claims
+      ?.sub
+    return typeof sub === 'string' ? sub : null
   },
   lookup: fetchLeetCodeProblem,
   mode: 'cloud',

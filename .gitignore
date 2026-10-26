@@ -27,3 +27,6 @@ dist-ssr
 # Each person who clones this repo gets their own; point POKELEET_DATA_DIR
 # somewhere else (e.g. in .env.local) to keep it outside the repo.
 data/
+
+# AWS CDK output
+cdk.out
