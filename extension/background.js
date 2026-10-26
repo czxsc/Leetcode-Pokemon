@@ -25,7 +25,7 @@ async function activeTabUrl() {
     const tab = win.tabs && win.tabs.find((t) => t.active)
     return (tab && tab.url) || ''
   } catch {
-    return ''     // no browser window open
+    return '' // no browser window open
   }
 }
 
@@ -91,7 +91,10 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     return true
   }
   if (msg.type === 'open') {
-    openLeetCode(msg.url).then(() => reply(true), () => reply(false))
+    openLeetCode(msg.url).then(
+      () => reply(true),
+      () => reply(false),
+    )
     return true
   }
   return false

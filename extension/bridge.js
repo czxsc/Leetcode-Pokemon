@@ -53,5 +53,6 @@ window.addEventListener('message', (event) => {
 })
 
 chrome.runtime.onMessage.addListener((msg) => {
-  if (joined && msg && msg.type === 'state') toPage({ type: 'state', leetcode: msg.leetcode, since: msg.since })
+  if (joined && msg && msg.type === 'state')
+    toPage({ type: 'state', leetcode: msg.leetcode, since: msg.since })
 })

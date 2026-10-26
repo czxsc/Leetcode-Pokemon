@@ -6,3 +6,5 @@ infra/cdk.out
 api/drizzle
 package-lock.json
 *.md
+# hand-formatted, dense design tokens and rules
+*.css
