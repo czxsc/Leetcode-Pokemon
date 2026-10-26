@@ -1,0 +1,8 @@
+dist
+data
+recordings
+coverage
+infra/cdk.out
+api/drizzle
+package-lock.json
+*.md
