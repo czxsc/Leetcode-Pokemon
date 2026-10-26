@@ -162,7 +162,7 @@ export function normalizeLibrary(saved: Saved, now: number): Library {
     .filter((t) => t.custom)
     .map((t) => ({ id: t.id, name: t.name.slice(0, LIMITS.tagNameLength) }))
   const problems = (Array.isArray(saved.problems) ? saved.problems : [])
-    .filter((p: Saved) => p && p.id != null && typeof p.title === 'string')
+    .filter((p: Saved) => p && p.id != null && String(p.id) !== '' && typeof p.title === 'string')
     .map((p: Saved) => normalizeProblem(p, now))
   return { problems, customTags }
 }
