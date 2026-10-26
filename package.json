@@ -18,7 +18,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1156.0",

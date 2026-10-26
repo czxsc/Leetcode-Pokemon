@@ -3,7 +3,6 @@
    daily rollover, and the split into the two saved documents.
 ===================================================================== */
 import * as Catalog from '../../shared/catalog'
-import { LIMITS } from '../../shared/library'
 import { GACHA_ITEMS } from './rules'
 import type { CustomTag, GameState, Library, OwnedMon, Problem, Progress, Stats } from './types'
 
@@ -136,20 +135,20 @@ export function normalizeProblem(p: Saved, now: number): Problem {
   let url = Catalog.oneLine(p.url)
   if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url
   return {
-    id: String(p.id).slice(0, LIMITS.idLength),
-    title: Catalog.oneLine(p.title).slice(0, LIMITS.titleLength) || 'Untitled',
+    id: String(p.id).slice(0, Catalog.LIMITS.idLength),
+    title: Catalog.oneLine(p.title).slice(0, Catalog.LIMITS.titleLength) || 'Untitled',
     difficulty,
     tags: [
       ...new Set(
         (Array.isArray(p.tags) ? p.tags : []).filter(
           (t: unknown): t is string =>
-            typeof t === 'string' && !!t && t.length <= LIMITS.tagIdLength,
+            typeof t === 'string' && !!t && t.length <= Catalog.LIMITS.tagIdLength,
         ),
       ),
-    ].slice(0, LIMITS.tagsPerProblem),
+    ].slice(0, Catalog.LIMITS.tagsPerProblem),
     language: Catalog.languageById(p.language).id,
     code: typeof p.code === 'string' ? p.code.replace(/\r\n?/g, '\n') : '',
-    url: url.slice(0, LIMITS.urlLength),
+    url: url.slice(0, Catalog.LIMITS.urlLength),
     createdAt: timestamp(p.createdAt, now),
     solvedAt: isDay(p.solvedAt) ? p.solvedAt : null,
     claimed: !!p.claimed,
@@ -160,10 +159,12 @@ export function normalizeProblem(p: Saved, now: number): Problem {
 export function normalizeLibrary(saved: Saved, now: number): Library {
   const customTags: CustomTag[] = Catalog.tagList(saved.customTags)
     .filter((t) => t.custom)
-    .map((t) => ({ id: t.id, name: t.name.slice(0, LIMITS.tagNameLength) }))
+    .map((t) => ({ id: t.id, name: t.name.slice(0, Catalog.LIMITS.tagNameLength) }))
+  const seen = new Set<string>()
   const problems = (Array.isArray(saved.problems) ? saved.problems : [])
     .filter((p: Saved) => p && p.id != null && String(p.id) !== '' && typeof p.title === 'string')
     .map((p: Saved) => normalizeProblem(p, now))
+    .filter((p: Problem) => !seen.has(p.id) && !!seen.add(p.id)) // ids are unique; first one wins
   return { problems, customTags }
 }
 

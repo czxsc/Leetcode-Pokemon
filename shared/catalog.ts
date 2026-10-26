@@ -5,6 +5,19 @@
 ===================================================================== */
 
 export const DIFFICULTIES = ['Easy', 'Medium', 'Hard'] as const
+
+// Size limits of the problem library (enforced by shared/library.ts).
+export const LIMITS = {
+  idLength: 100,
+  titleLength: 120,
+  tagIdLength: 80,
+  tagNameLength: 80,
+  tagsPerProblem: 50,
+  urlLength: 2048,
+  codeLength: 200_000,
+  problems: 5000,
+  customTags: 500,
+} as const
 export type Difficulty = (typeof DIFFICULTIES)[number]
 
 export interface Tag {

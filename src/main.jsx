@@ -4,7 +4,6 @@ import trackerManifest from '../extension/manifest.json'
 import { App } from './app/App'
 import { StorageError } from './app/StorageError'
 import { config, loadAuthConfig } from './config'
-import { signIn } from './platform/auth'
 import { openPersistence } from './platform/persistence'
 import { connectTracker } from './platform/tracker'
 import { initFocus } from './state/focus'
@@ -18,7 +17,8 @@ async function boot() {
   let session = null
   try {
     const auth = await loadAuthConfig()
-    if (auth) session = await signIn(auth)
+    // the sign-in library is only downloaded by the cloud app
+    if (auth) session = await (await import('./platform/auth')).signIn(auth)
     initStore(await openPersistence({ demo: config.demo, auth: session }))
   } catch (err) {
     root.render(<StorageError message={err.message} />)
