@@ -70,7 +70,13 @@ npm start
 If the Focus tab says **Tracker needs a reload**, go to `[browser]://extensions`,
 click the reload icon (↻) on **PokéLeet Tracker**, then reload the PokéLeet tab.
 
-## Online demo vs. personal use
+## Ways to run it
+
+| | Data lives in | Accounts | Study sessions |
+| --- | --- | --- | --- |
+| **Local** (`npm start`, above) | `data/` in the project folder | no, just you | yes |
+| **Cloud** (your own AWS account) | DynamoDB + PostgreSQL | yes, sign up with email | yes, after [one extension tweak](docs/deploying.md#study-sessions-on-the-cloud-app) |
+| **Online demo** | this browser only | no | no |
 
 **Demo:** https://czxsc.github.io/Leetcode-Pokemon/
 
@@ -83,3 +89,40 @@ click the reload icon (↻) on **PokéLeet Tracker**, then reload the PokéLeet 
 project folder, which is git-ignored so everyone who clones gets their own.
 Delete `data/` to start over, or use **Dashboard → Data → Export Backup** to
 move it to another computer.
+
+**Cloud:** deploy it to your own AWS account with sign-up and sync across
+devices. See [docs/deploying.md](docs/deploying.md).
+
+## How it's built
+
+- **Web app:** React 19 + Vite. The game rules are pure TypeScript functions
+  (`src/game/`), separate from the UI (`src/features/`).
+- **API:** a TypeScript [Hono](https://hono.dev) app (`api/`). It runs as a
+  Vite plugin locally and as an AWS Lambda in the cloud, with storage behind
+  one interface: JSON files locally, **DynamoDB** (game progress) and
+  **Aurora PostgreSQL** (problem library, via Drizzle ORM) in the cloud.
+  Requests are validated with Zod.
+- **Cloud:** CloudFront, S3, API Gateway with a Cognito JWT authorizer,
+  Lambda, DynamoDB, and Aurora Serverless v2 (scales to zero), all defined with
+  the **AWS CDK** (`infra/`).
+- **CI/CD:** GitHub Actions runs lint, type checks, unit tests and
+  integration tests (including DynamoDB Local), and a CDK synth. It deploys
+  `main` to AWS through GitHub OIDC, with no stored keys.
+
+More in [docs/architecture.md](docs/architecture.md), with the reasoning behind
+each choice in [docs/adr](docs/adr/).
+
+## Development
+
+```bash
+npm test             # unit and integration tests
+npm run lint         # ESLint
+npm run typecheck    # TypeScript
+npm run format       # Prettier
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the project layout and conventions.
+
+## License
+
+[MIT](LICENSE)
