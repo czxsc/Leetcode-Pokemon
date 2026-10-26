@@ -13,7 +13,7 @@
 ===================================================================== */
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { solutionPlan, tagList } from '../shared/catalog.js'
+import { solutionPlan, tagList } from '../shared/catalog'
 
 const DOCS = ['progress', 'library']
 const BACKUP_DAYS = 7

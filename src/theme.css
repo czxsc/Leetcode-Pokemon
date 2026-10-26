@@ -291,7 +291,7 @@ button{ font-family:inherit; cursor:pointer; }
 
 /* save status + data */
 .save-dot{ width:10px; height:10px; border-radius:50%; border:2px solid var(--wood-line); flex:none; }
-.save-dot.disk{ background:var(--sage-deep); }
+.save-dot.local, .save-dot.cloud{ background:var(--sage-deep); }
 .save-dot.browser{ background:var(--sky); }
 .save-dot.bad{ background:var(--hard); animation:livep 1.1s ease-in-out infinite; }
 .save-banner{ position:absolute; left:50%; bottom:22px; transform:translateX(-50%); z-index:80; max-width:760px;

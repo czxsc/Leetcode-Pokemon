@@ -52,7 +52,7 @@ export function createApiMiddleware(storage) {
     }
     if (pathname === '/api/data' && req.method === 'GET') {
       const { progress, library } = await storage.load()
-      return send(res, 200, { dataDir: storage.dataDir, progress, library })
+      return send(res, 200, { mode: 'local', location: storage.dataDir, progress, library })
     }
     const match = pathname.match(/^\/api\/(progress|library)$/)
     if (match && req.method === 'PUT') {

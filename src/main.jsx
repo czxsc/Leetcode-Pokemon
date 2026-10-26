@@ -1,66 +1,35 @@
 import { StrictMode } from 'react'
-import * as React from 'react'
 import { createRoot } from 'react-dom/client'
-import App, { StorageError } from './App.jsx'
-import * as Catalog from '../shared/catalog.js'
-import * as DateUtil from './date-utils.js'
-import * as LegacyImport from './legacy-import.js'
-import { openPersistence } from './persistence.js'
-import * as Study from './study.js'
-import { connectTracker } from './tracker.js'
 import trackerManifest from '../extension/manifest.json'
-import pokeAvatar from './assets/PokeAvatar.png'
+import { App } from './app/App'
+import { StorageError } from './app/StorageError'
+import { config, loadAuthConfig } from './config'
+import { signIn } from './platform/auth'
+import { openPersistence } from './platform/persistence'
+import { connectTracker } from './platform/tracker'
+import { initFocus } from './state/focus'
+import { initStore } from './state/store'
 import './theme.css'
-
-// The GitHub Pages demo is built with `--mode demo` (see .env.demo).
-window.AppConfig = {
-  demo: import.meta.env.MODE === 'demo',
-  repoUrl: import.meta.env.VITE_REPO_URL || '',
-}
-window.React = React
-window.ReactDOM = { createRoot }
-window.Catalog = Catalog
-window.DateUtil = DateUtil
-window.LegacyImport = LegacyImport
-window.AppAssets = { pokeAvatar }
-window.Study = Study
-// The Tracker extension in this repo's extension/ folder; an older copy
-// loaded in the browser is reported as needing a reload.
-window.Tracker = connectTracker({ expectedVersion: trackerManifest.version, demo: window.AppConfig.demo })
 
 const root = createRoot(document.getElementById('root'))
 
+// Sign in (cloud app only), load the saved data, then start the app.
 async function boot() {
+  let session = null
   try {
-    // The store reads its starting state from here, so load it first.
-    window.Persistence = await openPersistence({ demo: window.AppConfig.demo })
-    if (window.AppConfig.demo) window.DemoSeed = await import('./demo-seed.js')
+    const auth = await loadAuthConfig()
+    if (auth) session = await signIn(auth)
+    initStore(await openPersistence({ demo: config.demo, auth: session }))
   } catch (err) {
     root.render(<StorageError message={err.message} />)
     return
   }
-
-  await import('./legacy/js/dex.jsx')
-  await import('./legacy/js/pixelmon.jsx')
-  await import('./legacy/js/data.jsx')
-  await import('./legacy/js/store.jsx')
-  await import('./legacy/js/ui.jsx')
-  await import('./legacy/js/detail.jsx')
-  await import('./legacy/js/dashboard.jsx')
-  await import('./legacy/js/gacha.jsx')
-  await import('./legacy/js/chapters.jsx')
-  await import('./legacy/js/quests.jsx')
-  await import('./legacy/js/recall.jsx')
-  await import('./legacy/js/team.jsx')
-  await import('./legacy/js/pokedex.jsx')
-  await import('./legacy/js/shop.jsx')
-  await import('./legacy/js/meadow.jsx')
-  await import('./legacy/js/onboarding.jsx')
-  await import('./legacy/js/app.jsx')
-
+  // The Tracker extension from this repo's extension/ folder; an older copy
+  // loaded in the browser is reported as needing a reload.
+  initFocus(connectTracker({ expectedVersion: trackerManifest.version, demo: config.demo }))
   root.render(
     <StrictMode>
-      <App />
+      <App session={session} />
     </StrictMode>,
   )
 }
