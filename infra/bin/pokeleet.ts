@@ -1,8 +1,9 @@
 /* =====================================================================
    The CDK app. Context (-c key=value, or cdk.json):
-     stage        dev (default) | prod
-     budgetEmail  where to send monthly cost alerts (optional)
-     githubRepo   owner/repo, to create the GitHub deploy role (optional)
+     stage           dev (default) | prod
+     budgetEmail     where to send monthly cost alerts (optional)
+     googleClientId  adds "Continue with Google" (optional, docs/deploying.md)
+     githubRepo      owner/repo, to create the GitHub deploy role (optional)
 ===================================================================== */
 import path from 'node:path'
 import { App } from 'aws-cdk-lib'
@@ -19,6 +20,7 @@ new PokeleetStack(app, `Pokeleet-${stage}`, {
   stage,
   webAssetsDir: path.join(REPO_ROOT, 'dist'),
   budgetEmail: app.node.tryGetContext('budgetEmail'),
+  googleClientId: app.node.tryGetContext('googleClientId') || undefined,
   tags: { project: 'pokeleet', stage },
 })
 

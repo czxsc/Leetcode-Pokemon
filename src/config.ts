@@ -6,14 +6,18 @@
 ===================================================================== */
 
 export const config = {
+  // The online demo: no account, saved in this browser only. Also turned on
+  // at run time for the cloud app's own demo (main.jsx, ?demo).
   demo: import.meta.env.MODE === 'demo',
+  cloudDemo: false, // the demo is the cloud app's, which has accounts to offer
   repoUrl: (import.meta.env.VITE_REPO_URL as string | undefined) || '',
 }
 
 export interface AuthConfig {
   authority: string // Cognito user pool issuer URL
   clientId: string
-  domain: string // Cognito hosted sign-in domain, for signing out
+  domain: string // Cognito sign-in domain, for signing out
+  providers?: string[] // other ways to sign in, e.g. ['Google']
 }
 
 export async function loadAuthConfig(): Promise<AuthConfig | null> {

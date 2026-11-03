@@ -6,8 +6,8 @@ three setups; only where the data is stored changes.
 | Setup | How it runs | Where data lives | Sign-in |
 | --- | --- | --- | --- |
 | **Local** (`npm start`) | Vite dev server with the API as a plugin | JSON files in `data/` | none (one local user) |
-| **Cloud** (your AWS account) | CloudFront + API Gateway + Lambda | DynamoDB (game progress) and Aurora PostgreSQL (problem library) | Cognito |
-| **Demo** (GitHub Pages) | static files only | the browser's localStorage | none |
+| **Cloud** (your AWS account) | CloudFront + API Gateway + Lambda | DynamoDB (game progress) and Aurora PostgreSQL (problem library) | Cognito: email, or Google |
+| **Demo** (GitHub Pages, or the cloud app's `?demo`) | static files only | the browser's localStorage | none |
 
 ## The cloud deployment
 
@@ -15,7 +15,8 @@ three setups; only where the data is stored changes.
 flowchart LR
   B[Browser<br/>React app] -->|static files| CF[CloudFront]
   CF --> S3[(S3<br/>app + config.json)]
-  B -->|sign in: code + PKCE| COG[Cognito<br/>hosted sign-in]
+  B -->|sign in: code + PKCE| COG[Cognito<br/>managed login]
+  COG -.->|optional| G[Google]
   B -->|/api/* with access token| CF
   CF -->|/api/*| APIGW[API Gateway<br/>HTTP API + JWT authorizer]
   APIGW --> L[Lambda<br/>api/src/lambda.ts]
@@ -30,6 +31,11 @@ flowchart LR
 - **Auth at the edge.** API Gateway checks every request's Cognito access
   token before the Lambda runs. The Lambda takes the user id from the token's
   `sub` claim and never sees an unauthenticated request.
+- **Signing in.** Signed-out visitors get a small sign-in screen: Google,
+  email (Cognito's sign-in pages, styled in code to match the app), or a demo
+  that needs no account ([ADR 8](adr/0008-branded-sign-in-and-google.md)).
+  The sign-up page links the privacy policy and terms (`public/privacy.html`,
+  `public/terms.html`).
 - **No servers to keep warm.** Lambda, API Gateway, DynamoDB (on-demand) and
   Aurora (scales to zero when idle) all cost close to nothing when unused.
   Aurora runs in its express configuration: no VPC, reached over TLS with

@@ -20,6 +20,9 @@ export interface PokeleetStackProps extends StackProps {
   webAssetsDir: string // the built web app (npm run build -> dist/)
   budgetEmail?: string // monthly cost alert recipient
   monthlyBudgetUsd?: number
+  // "Continue with Google": the Google OAuth client's ID. Its secret goes in
+  // Secrets Manager as pokeleet-<stage>/google-client-secret (docs/deploying.md).
+  googleClientId?: string
 }
 
 export class PokeleetStack extends Stack {
@@ -42,10 +45,16 @@ export class PokeleetStack extends Stack {
     const auth = new Auth(this, 'Auth', {
       prod,
       domainPrefix: `pokeleet-${props.stage}-${this.account}`,
+      google: props.googleClientId
+        ? {
+            clientId: props.googleClientId,
+            secretName: `pokeleet-${props.stage}/google-client-secret`,
+          }
+        : undefined,
     })
     const api = new Api(this, 'Api', { auth, database, table })
     const web = new Web(this, 'Web', { prod, api: api.httpApi })
-    auth.addWebClient([`${web.url}/`]) // where sign-in returns to
+    auth.addWebClient(`${web.url}/`)
     web.deploy(props.webAssetsDir, { auth: auth.webConfig() })
 
     if (props.budgetEmail) {

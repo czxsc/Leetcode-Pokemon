@@ -1,6 +1,6 @@
 # 6. Cognito sign-in, CDK infrastructure, deploys through GitHub OIDC
 
-**Status:** accepted
+**Status:** accepted; sign-in pages and plan updated by [ADR 8](0008-branded-sign-in-and-google.md)
 
 ## Context
 

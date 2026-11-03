@@ -5,9 +5,11 @@ import path from 'node:path'
 import { App } from 'aws-cdk-lib'
 import { Match, Template } from 'aws-cdk-lib/assertions'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { PokeleetStack } from '../lib/pokeleet-stack.ts'
+import { PokeleetStack, type PokeleetStackProps } from '../lib/pokeleet-stack.ts'
 
-function synth(stage: string) {
+const env = { account: '123456789012', region: 'us-east-1' }
+
+function synth(stage: string, extra: Partial<PokeleetStackProps> = {}) {
   // skip esbuild/Docker bundling: these tests are about the infrastructure, not the code
   const app = new App({ context: { 'aws:cdk:bundling-stacks': [] } })
   const webAssetsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pokeleet-web-'))
@@ -16,7 +18,8 @@ function synth(stage: string) {
     stage,
     webAssetsDir,
     budgetEmail: 'me@example.com',
-    env: { account: '123456789012', region: 'us-east-1' },
+    env,
+    ...extra,
   })
   return Template.fromStack(stack)
 }
@@ -91,6 +94,43 @@ describe('PokeleetStack', () => {
     dev.hasResourceProperties('AWS::Cognito::UserPoolClient', {
       AllowedOAuthFlows: ['code'],
       GenerateSecret: false,
+    })
+  })
+
+  it("signs in on Cognito's managed login pages, styled like the app", () => {
+    dev.hasResourceProperties('AWS::Cognito::UserPool', { UserPoolTier: 'ESSENTIALS' })
+    dev.hasResourceProperties('AWS::Cognito::UserPoolDomain', { ManagedLoginVersion: 2 })
+    dev.hasResourceProperties('AWS::Cognito::ManagedLoginBranding', {
+      Settings: Match.objectLike({
+        categories: Match.objectLike({ global: Match.objectLike({ colorSchemeMode: 'LIGHT' }) }),
+      }),
+      Assets: Match.arrayWith([Match.objectLike({ Category: 'FORM_LOGO', Extension: 'PNG' })]),
+    })
+  })
+
+  it('links the terms and privacy policy from the sign-up page', () => {
+    const terms = Object.values(dev.findResources('AWS::Cognito::Terms')).map((r) => [
+      r.Properties.TermsName,
+      JSON.stringify(r.Properties.Links['cognito:default']),
+    ])
+    expect(terms).toHaveLength(2)
+    expect(terms.find(([name]) => name === 'terms-of-use')![1]).toContain('/terms.html')
+    expect(terms.find(([name]) => name === 'privacy-policy')![1]).toContain('/privacy.html')
+  })
+
+  it('offers Google sign-in only when given a Google client, keeping its secret out of the template', () => {
+    dev.resourceCountIs('AWS::Cognito::UserPoolIdentityProvider', 0)
+    const google = synth('dev', { googleClientId: 'abc.apps.googleusercontent.com' })
+    google.hasResourceProperties('AWS::Cognito::UserPoolIdentityProvider', {
+      ProviderName: 'Google',
+      ProviderDetails: Match.objectLike({
+        client_id: 'abc.apps.googleusercontent.com',
+        client_secret:
+          '{{resolve:secretsmanager:pokeleet-dev/google-client-secret:SecretString::AWSCURRENT:}}',
+      }),
+    })
+    google.hasResourceProperties('AWS::Cognito::UserPoolClient', {
+      SupportedIdentityProviders: ['COGNITO', 'Google'],
     })
   })
 

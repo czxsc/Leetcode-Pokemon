@@ -1,0 +1,100 @@
+/* The privacy policy and terms pages (privacy.html, terms.html): the app's
+   colors and pixel headings, with plain text for reading. */
+:root {
+  --ink: #5d4733;
+  --ink-soft: #856a4d;
+  --card: #f8efd6;
+  --card-line: #d3bb8c;
+  --wood-lite: #dcb98a;
+  --wood: #c89c6e;
+  --wood-line: #7c5a3d;
+  --lav-deep: #8273b3;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 24px 16px 48px;
+  color: var(--ink);
+  font: 16px/1.65 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+html {
+  min-height: 100%;
+  background: linear-gradient(160deg, #d2e3aa 0%, #aecd82 55%, #c2e2c8 100%);
+}
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  margin-bottom: 20px;
+  color: #5d4026;
+  text-decoration: none;
+  font: 15px/1 'Silkscreen', monospace;
+  background: linear-gradient(180deg, var(--wood-lite) 0 58%, var(--wood) 100%);
+  border: 3px solid var(--wood-line);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -4px 0 rgba(124, 90, 61, 0.25);
+}
+.logo img {
+  width: 26px;
+  height: 26px;
+}
+main {
+  background: var(--card);
+  border: 3px solid var(--wood-line);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 0 0 3px var(--wood-lite),
+    0 4px 0 rgba(124, 90, 61, 0.22);
+  padding: 28px 32px;
+}
+h1,
+h2 {
+  font-family: 'Silkscreen', monospace;
+  font-weight: 400;
+  line-height: 1.3;
+}
+h1 {
+  font-size: 24px;
+  margin: 0 0 4px;
+}
+h2 {
+  font-size: 15px;
+  margin: 28px 0 8px;
+  color: #a87c54;
+}
+.updated {
+  margin: 0 0 20px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+p,
+li {
+  margin: 0 0 10px;
+}
+ul {
+  padding-left: 22px;
+  margin: 0 0 10px;
+}
+a {
+  color: var(--lav-deep);
+  font-weight: 600;
+}
+footer {
+  margin-top: 16px;
+  font-size: 14px;
+  text-align: center;
+}
+@media (max-width: 600px) {
+  main {
+    padding: 20px 18px;
+  }
+}

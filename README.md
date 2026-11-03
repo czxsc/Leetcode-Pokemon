@@ -75,7 +75,7 @@ click the reload icon (↻) on **PokéLeet Tracker**, then reload the PokéLeet 
 | | Data lives in | Accounts | Study sessions |
 | --- | --- | --- | --- |
 | **Local** (`npm start`, above) | `data/` in the project folder | no, just you | yes |
-| **Cloud** (your own AWS account) | DynamoDB + PostgreSQL | yes, sign up with email | yes, after [one extension tweak](docs/deploying.md#study-sessions-on-the-cloud-app) |
+| **Cloud** (your own AWS account) | DynamoDB + PostgreSQL | yes, email or Google | yes, after [one extension tweak](docs/deploying.md#study-sessions-on-the-cloud-app) |
 | **Online demo** | this browser only | no | no |
 
 **Demo:** https://czxsc.github.io/Leetcode-Pokemon/
@@ -104,7 +104,8 @@ devices. See [docs/deploying.md](docs/deploying.md).
   Requests are validated with Zod.
 - **Cloud:** CloudFront, S3, API Gateway with a Cognito JWT authorizer,
   Lambda, DynamoDB, and Aurora Serverless v2 (scales to zero), all defined with
-  the **AWS CDK** (`infra/`).
+  the **AWS CDK** (`infra/`). Sign-in is Cognito's managed login, styled to
+  match the app, with optional Google sign-in.
 - **CI/CD:** GitHub Actions runs lint, type checks, unit tests and
   integration tests (against DynamoDB Local and PostgreSQL), and a CDK synth. It deploys
   `main` to AWS through GitHub OIDC, with no stored keys.

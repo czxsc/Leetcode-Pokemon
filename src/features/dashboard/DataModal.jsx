@@ -118,6 +118,12 @@ export function DataModal({ onClose }) {
               Your progress and problems are saved to your PokéLeet account, so they are there in
               any browser where you sign in.
             </div>
+          ) : config.cloudDemo ? (
+            <div style={{ ...hintStyle, marginBottom: 0 }}>
+              This is the demo, so your progress is kept in this browser only. With a{' '}
+              <a href={import.meta.env.BASE_URL}>free account</a>, it&rsquo;s saved to the cloud and
+              follows you to any device.
+            </div>
           ) : (
             <div
               style={{

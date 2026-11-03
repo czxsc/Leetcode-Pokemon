@@ -651,3 +651,26 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
   animation:legendglow 1.8s ease-in-out infinite both; }
 @keyframes legendglow{ 0%,100%{ box-shadow:0 0 10px 2px rgba(236,196,108,.45); } 50%{ box-shadow:0 0 26px 8px rgba(236,196,108,.9); } }
 @media (prefers-reduced-motion: reduce){ .legend-fx{ display:none; } .legend-glow{ animation:none; box-shadow:0 0 18px 4px rgba(236,196,108,.7); } }
+
+/* =========================================================
+   SIGN-IN — the cloud app's screen when signed out (app/SignIn.jsx).
+   A normal page that fits any width, unlike the fixed 1280x800 app screen.
+========================================================= */
+.signin{ position:fixed; inset:0; overflow-y:auto; display:flex; align-items:center; justify-content:center; padding:24px 16px;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255,255,255,.16) 0 2.5px, transparent 3px),
+    radial-gradient(circle at 72% 64%, rgba(255,255,255,.12) 0 2.5px, transparent 3px),
+    linear-gradient(160deg, var(--sage-lite) 0%, var(--sage) 55%, var(--mint) 100%);
+  background-size: 56px 56px, 84px 84px, auto; }
+.signin-panel{ width:420px; max-width:100%; margin:auto; padding:22px 24px 16px; }
+.signin-panel h1{ margin:0; flex:1; font-size:17px; font-weight:400; color:var(--wood-dark); }
+.signin-body{ display:flex; flex-direction:column; gap:12px; padding:18px 0 16px; }
+.signin-body .btn{ display:flex; align-items:center; justify-content:center; gap:10px; width:100%; font-size:12px; padding:12px 16px; text-decoration:none; }
+.signin-google{ background:var(--card-2); }
+.signin-or{ display:flex; align-items:center; gap:10px; font-family:'Silkscreen'; font-size:10px; color:var(--ink-faint); text-transform:uppercase; }
+.signin-or::before, .signin-or::after{ content:""; flex:1; border-top:2px solid var(--card-line); }
+.signin-note{ margin:0; font-size:14px; color:var(--ink-soft); text-align:center; }
+.signin-error{ font-size:14px; line-height:1.45; color:var(--ink); word-break:break-word; }
+.signin-links{ display:flex; justify-content:center; gap:18px; padding-top:12px; border-top:2px solid var(--card-line); }
+.signin-links a{ font-family:'Silkscreen'; font-size:10px; color:var(--wood-dark); text-decoration:none; }
+.signin-links a:hover{ color:var(--lav-deep); }
