@@ -99,4 +99,5 @@ jobs:
           -c stage=${{ vars.STAGE || 'dev' }}
           -c budgetEmail=${{ secrets.BUDGET_EMAIL }}
           -c googleClientId=${{ vars.GOOGLE_CLIENT_ID }}
+          -c domain=${{ vars.DOMAIN }}
         working-directory: infra

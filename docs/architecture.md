@@ -36,6 +36,9 @@ flowchart LR
   that needs no account ([ADR 8](adr/0008-branded-sign-in-and-google.md)).
   The sign-up page links the privacy policy and terms (`public/privacy.html`,
   `public/terms.html`).
+- **Its own address** (optional): e.g. `pokeleet.sharonchen.dev`, with sign-in
+  at `auth.pokeleet.sharonchen.dev`, through a Route 53 zone delegated from the
+  parent domain ([ADR 10](adr/0010-the-apps-own-domain.md)).
 - **People can delete their own account** from the Backups window: their
   data in both databases, then their Cognito user
   ([ADR 9](adr/0009-self-service-account-deletion.md)).

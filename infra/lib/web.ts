@@ -2,22 +2,32 @@
    The web app: static files in a private S3 bucket behind CloudFront.
    CloudFront also routes /api/* to the HTTP API, so the app and its API
    share one origin (no CORS, and the app's relative /api/... calls work
-   unchanged). config.json tells the app how to sign in.
+   unchanged). config.json tells the app how to sign in. With a domain,
+   it's served there too (the CloudFront address keeps working).
 ===================================================================== */
 import { RemovalPolicy, Stack } from 'aws-cdk-lib'
 import type * as apigw from 'aws-cdk-lib/aws-apigatewayv2'
+import type * as acm from 'aws-cdk-lib/aws-certificatemanager'
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront'
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment'
 import { Construct } from 'constructs'
 
+export interface WebProps {
+  prod: boolean
+  api: apigw.HttpApi
+  domain?: { name: string; certificate: acm.ICertificate } // the app's own address
+}
+
 export class Web extends Construct {
   readonly distribution: cloudfront.Distribution
   readonly bucket: s3.Bucket
+  private readonly domainName?: string
 
-  constructor(scope: Construct, id: string, { prod, api }: { prod: boolean; api: apigw.HttpApi }) {
+  constructor(scope: Construct, id: string, { prod, api, domain }: WebProps) {
     super(scope, id)
+    this.domainName = domain?.name
     const { region, urlSuffix } = Stack.of(this)
     const apiDomain = `${api.apiId}.execute-api.${region}.${urlSuffix}`
 
@@ -30,6 +40,7 @@ export class Web extends Construct {
     })
 
     this.distribution = new cloudfront.Distribution(this, 'Cdn', {
+      ...(domain ? { domainNames: [domain.name], certificate: domain.certificate } : {}),
       defaultRootObject: 'index.html',
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(this.bucket),
@@ -62,7 +73,12 @@ export class Web extends Construct {
     })
   }
 
+  // where people open the app
   get url(): string {
+    return this.domainName ? `https://${this.domainName}` : this.cloudFrontUrl
+  }
+
+  get cloudFrontUrl(): string {
     return `https://${this.distribution.distributionDomainName}`
   }
 }

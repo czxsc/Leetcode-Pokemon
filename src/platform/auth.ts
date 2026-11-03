@@ -22,6 +22,17 @@ function userManager(cfg: AuthConfig) {
   return new UserManager({
     authority: cfg.authority,
     client_id: cfg.clientId,
+    // Cognito's endpoints at the app's sign-in domain (its own, when it has
+    // one), rather than whichever domain Cognito's discovery document names
+    metadata: {
+      issuer: cfg.authority,
+      authorization_endpoint: `${cfg.domain}/oauth2/authorize`,
+      token_endpoint: `${cfg.domain}/oauth2/token`,
+      userinfo_endpoint: `${cfg.domain}/oauth2/userInfo`,
+      revocation_endpoint: `${cfg.domain}/oauth2/revoke`,
+      end_session_endpoint: `${cfg.domain}/logout`,
+      jwks_uri: `${cfg.authority}/.well-known/jwks.json`,
+    },
     redirect_uri: appUrl(),
     response_type: 'code',
     scope: 'openid email',

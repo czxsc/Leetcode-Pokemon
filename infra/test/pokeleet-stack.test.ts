@@ -5,20 +5,24 @@ import path from 'node:path'
 import { App } from 'aws-cdk-lib'
 import { Match, Template } from 'aws-cdk-lib/assertions'
 import { beforeAll, describe, expect, it } from 'vitest'
+import { DnsStack } from '../lib/dns-stack.ts'
 import { PokeleetStack, type PokeleetStackProps } from '../lib/pokeleet-stack.ts'
 
 const env = { account: '123456789012', region: 'us-east-1' }
 
-function synth(stage: string, extra: Partial<PokeleetStackProps> = {}) {
+// domain: also create its DNS stack, as bin/pokeleet.ts does
+function synth(stage: string, extra: Partial<PokeleetStackProps> = {}, domain?: string) {
   // skip esbuild/Docker bundling: these tests are about the infrastructure, not the code
   const app = new App({ context: { 'aws:cdk:bundling-stacks': [] } })
   const webAssetsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pokeleet-web-'))
   fs.writeFileSync(path.join(webAssetsDir, 'index.html'), '<!doctype html>')
+  const dns = domain ? new DnsStack(app, 'Test-Dns', { env, domain }) : undefined
   const stack = new PokeleetStack(app, `Test-${stage}`, {
     stage,
     webAssetsDir,
     budgetEmail: 'me@example.com',
     env,
+    domain: domain ? { name: domain, zone: dns!.zone } : undefined,
     ...extra,
   })
   return Template.fromStack(stack)
@@ -159,6 +163,65 @@ describe('PokeleetStack', () => {
     google.hasResourceProperties('AWS::Cognito::UserPoolClient', {
       SupportedIdentityProviders: ['COGNITO', 'Google'],
     })
+  })
+
+  describe('with its own domain', () => {
+    let t: Template
+    beforeAll(() => {
+      t = synth('dev', {}, 'pokeleet.example.com')
+    })
+
+    it('serves the app at the domain and sign-in at auth.<domain>, with one certificate', () => {
+      t.hasResourceProperties('AWS::CertificateManager::Certificate', {
+        DomainName: 'pokeleet.example.com',
+        SubjectAlternativeNames: ['auth.pokeleet.example.com'],
+        ValidationMethod: 'DNS',
+      })
+      t.hasResourceProperties('AWS::CloudFront::Distribution', {
+        DistributionConfig: Match.objectLike({ Aliases: ['pokeleet.example.com'] }),
+      })
+      t.hasResourceProperties('AWS::Cognito::UserPoolDomain', {
+        Domain: 'auth.pokeleet.example.com',
+        CustomDomainConfig: Match.objectLike({ CertificateArn: Match.anyValue() }),
+      })
+      // the amazoncognito.com domain stays, so existing links keep working
+      t.resourceCountIs('AWS::Cognito::UserPoolDomain', 2)
+    })
+
+    it("creates the domain's records, the app's before the sign-in domain that needs it", () => {
+      const records = Object.entries(t.findResources('AWS::Route53::RecordSet'))
+      const named = (name: string, type: string) =>
+        records.find(([, r]) => r.Properties.Name === name && r.Properties.Type === type)
+      expect(named('pokeleet.example.com.', 'A')).toBeDefined()
+      expect(named('pokeleet.example.com.', 'AAAA')).toBeDefined()
+      expect(named('auth.pokeleet.example.com.', 'A')).toBeDefined()
+      const [appRecord] = named('pokeleet.example.com.', 'A')!
+      const custom = Object.values(t.findResources('AWS::Cognito::UserPoolDomain')).find(
+        (r) => r.Properties.Domain === 'auth.pokeleet.example.com',
+      )!
+      expect(custom.DependsOn).toContain(appRecord)
+    })
+
+    it('lets sign-in return to the domain and to the CloudFront address', () => {
+      const client = Object.values(t.findResources('AWS::Cognito::UserPoolClient'))[0]
+      const urls = JSON.stringify(client.Properties.CallbackURLs)
+      expect(urls).toContain('https://pokeleet.example.com/')
+      expect(urls).toContain('DomainName') // the CloudFront address, resolved at deploy
+    })
+  })
+
+  it("lets Amazon issue the domain's certificate, whatever the parent domain allows", () => {
+    const dns = new DnsStack(new App(), 'Test-Dns', { env, domain: 'pokeleet.example.com' })
+    Template.fromStack(dns).hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: 'pokeleet.example.com.',
+      Type: 'CAA',
+      ResourceRecords: ['0 issue "amazon.com"'],
+    })
+  })
+
+  it('has no certificate or records without a domain', () => {
+    dev.resourceCountIs('AWS::CertificateManager::Certificate', 0)
+    dev.resourceCountIs('AWS::Route53::RecordSet', 0)
   })
 
   it('serves the app from a private bucket and routes /api/* to the API, uncached', () => {

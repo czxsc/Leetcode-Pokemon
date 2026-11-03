@@ -14,6 +14,8 @@ Cognito are free up to 10,000 monthly users. The database is the main cost:
   the minimum size.
 - **Secrets Manager**, only with Google sign-in: $0.40 per month for the
   Google client secret.
+- **Route 53**, only with your own domain: $0.50 per month for its DNS zone.
+  The certificate is free.
 
 Pass a `budgetEmail` (below) to get an email at 80% and 100% of a $5 monthly
 budget.
@@ -64,6 +66,7 @@ AWS with GitHub's OIDC token. No AWS keys are stored in GitHub.
    - `AWS_REGION`: e.g. `us-east-1`
    - `STAGE` (optional): `dev` (default) or `prod`
    - `GOOGLE_CLIENT_ID` (optional): turns on Google sign-in (below)
+   - `DOMAIN` (optional): the app's own address (below)
 
    And under **Secrets**:
    - `BUDGET_EMAIL`: where cost alerts go. It's a secret so the address is
@@ -118,6 +121,31 @@ One email address is one account: the first Google sign-in with the
 (verified) email of an existing account is linked to it
 (`api/src/pre-sign-up.ts`), and a password sign-up for an email that already
 uses Google is refused.
+
+## Your own domain
+
+Optional. The app can live at an address of yours, say `pokeleet.example.com`,
+with its sign-in pages at `auth.pokeleet.example.com`. The subdomain gets its
+own DNS zone in Route 53, so the parent domain's DNS can stay wherever it is.
+
+1. Create the zone (once):
+   ```bash
+   npx cdk deploy Pokeleet-Dns -c domain=pokeleet.example.com
+   ```
+   It prints `NameServers`: four names. The zone also allows Amazon to issue
+   its certificates (a CAA record), whatever `example.com` allows.
+2. Where `example.com`'s DNS is hosted, add four **NS** records named
+   `pokeleet`, one per name server. Check it worked with
+   `nslookup -type=NS pokeleet.example.com`.
+3. Add `-c domain=pokeleet.example.com` to every deploy of the app. The first
+   one creates the certificate (validated through the zone), points the
+   domain at CloudFront and adds the sign-in domain; that can take a while.
+   The CloudFront address keeps working too.
+4. With Google sign-in: in the Google client, add
+   `https://auth.pokeleet.example.com` to the JavaScript origins and
+   `https://auth.pokeleet.example.com/oauth2/idpresponse` to the redirect URIs,
+   add `example.com` to the authorized domains, and update the home page,
+   privacy and terms links to the new address.
 
 ## Study sessions on the cloud app
 

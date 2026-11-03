@@ -1,13 +1,14 @@
 /* =====================================================================
    Sign-in: a Cognito user pool with its managed sign-in pages, styled
-   like the app (sign-in-style.ts), and optionally "Continue with
-   Google". One email is one account: a pre sign-up trigger links a
-   Google sign-in to the account that already has its email
-   (api/src/pre-sign-up.ts).
+   like the app (sign-in-style.ts), optionally at the app's own domain
+   (auth.<domain>), and optionally "Continue with Google". One email is
+   one account: a pre sign-up trigger links a Google sign-in to the
+   account that already has its email (api/src/pre-sign-up.ts).
    The web app uses the authorization code flow with PKCE (a public
    client, no secret); API Gateway checks the resulting access tokens.
 ===================================================================== */
 import { Duration, Lazy, RemovalPolicy, SecretValue, Stack } from 'aws-cdk-lib'
+import type * as acm from 'aws-cdk-lib/aws-certificatemanager'
 import * as cognito from 'aws-cdk-lib/aws-cognito'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import { Construct } from 'constructs'
@@ -22,16 +23,23 @@ export interface GoogleSignIn {
 export interface AuthProps {
   prod: boolean
   domainPrefix: string // the <prefix>.auth.<region>.amazoncognito.com domain
+  // the app's own sign-in domain (auth.<app domain>), with a certificate for it
+  customDomain?: { name: string; certificate: acm.ICertificate }
   google?: GoogleSignIn
 }
 
 export class Auth extends Construct {
   readonly userPool: cognito.UserPool
   readonly domain: cognito.UserPoolDomain
+  readonly customDomain?: cognito.UserPoolDomain
   private readonly google?: cognito.UserPoolIdentityProviderGoogle
   private client?: cognito.UserPoolClient
 
-  constructor(scope: Construct, id: string, { prod, domainPrefix, google }: AuthProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    { prod, domainPrefix, customDomain, google }: AuthProps,
+  ) {
     super(scope, id)
 
     const preSignUp = apiFunction(this, 'PreSignUp', { entry: 'api/src/pre-sign-up.ts' })
@@ -66,6 +74,13 @@ export class Auth extends Construct {
       cognitoDomain: { domainPrefix },
       managedLoginVersion: cognito.ManagedLoginVersion.NEWER_MANAGED_LOGIN,
     })
+    // Next to the amazoncognito.com one, which keeps working.
+    if (customDomain) {
+      this.customDomain = this.userPool.addDomain('CustomSignIn', {
+        customDomain: { domainName: customDomain.name, certificate: customDomain.certificate },
+        managedLoginVersion: cognito.ManagedLoginVersion.NEWER_MANAGED_LOGIN,
+      })
+    }
 
     if (google) {
       this.google = new cognito.UserPoolIdentityProviderGoogle(this, 'Google', {
@@ -85,16 +100,17 @@ export class Auth extends Construct {
     }
   }
 
-  // The web app's sign-in client, added once the app's URL (ending in /) is known.
-  addWebClient(appUrl: string) {
+  // The web app's sign-in client, added once the app's URL (ending in /) is
+  // known. alsoAt: other addresses the app answers at, e.g. its CloudFront one.
+  addWebClient(appUrl: string, alsoAt: string[] = []) {
     this.client = this.userPool.addClient('WebApp', {
       generateSecret: false,
       preventUserExistenceErrors: true,
       oAuth: {
         flows: { authorizationCodeGrant: true },
         scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL],
-        callbackUrls: [appUrl], // where sign-in returns to
-        logoutUrls: [appUrl],
+        callbackUrls: [appUrl, ...alsoAt], // where sign-in returns to
+        logoutUrls: [appUrl, ...alsoAt],
       },
       supportedIdentityProviders: [
         cognito.UserPoolClientIdentityProvider.COGNITO,
@@ -151,7 +167,7 @@ export class Auth extends Construct {
     return {
       authority: this.issuer,
       clientId: this.clientId,
-      domain: this.domain.baseUrl(), // sign-in pages
+      domain: (this.customDomain ?? this.domain).baseUrl(), // sign-in pages
       providers: this.google ? ['Google'] : [], // buttons for the landing page
     }
   }
