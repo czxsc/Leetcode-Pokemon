@@ -22,7 +22,11 @@ const tmpDir = () => fs.mkdtemp(path.join(os.tmpdir(), 'pokeleet-'))
 const migrationsFolder = path.join(import.meta.dirname, '../drizzle')
 
 // ---- in-memory (the route tests' stand-in) ----
-documentStoreContract('memory store', { setup: () => memoryStore(), samples: progressSamples })
+documentStoreContract('memory store', {
+  setup: () => memoryStore(),
+  samples: progressSamples,
+  erasable: true,
+})
 
 // ---- JSON files (the local app) ----
 documentStoreContract('file store', {
@@ -81,6 +85,7 @@ async function postgres() {
 documentStoreContract('postgres library store', {
   setup: async () => createPostgresLibraryStore(await postgres()),
   samples: librarySamples,
+  erasable: true,
 })
 
 describe('postgres library store', () => {
@@ -126,6 +131,25 @@ describe('postgres library store', () => {
     expect((await store.load('u'))!.data.problems).toEqual(problems)
   })
 
+  it("removes all of a user's rows, and no one else's", async () => {
+    const db = await postgres()
+    const store = createPostgresLibraryStore(db)
+    const lib: Library = {
+      problems: [problem('a', { tags: ['dp', 'mine'] })],
+      customTags: [{ id: 'mine', name: 'Mine' }],
+    }
+    await store.save('u', lib, 0)
+    await store.save('v', lib, 0)
+    await store.remove('u')
+    const counts = await db.execute(`select
+      (select count(*)::int from libraries where user_id = 'u') as libraries,
+      (select count(*)::int from problems where user_id = 'u') as problems,
+      (select count(*)::int from problem_tags where user_id = 'u') as tags,
+      (select count(*)::int from custom_tags where user_id = 'u') as custom,
+      (select count(*)::int from problem_tags where user_id = 'v') as others`)
+    expect(counts.rows[0]).toEqual({ libraries: 0, problems: 0, tags: 0, custom: 0, others: 2 })
+  })
+
   it('handles libraries larger than one insert batch', async () => {
     const store = createPostgresLibraryStore(await postgres())
     const problems = Array.from({ length: 250 }, (_, i) => problem(`p${i}`))
@@ -162,6 +186,7 @@ describe.runIf(postgresUrl)('postgres over a connection, on a server', () => {
   documentStoreContract('postgres library store, a connection per call', {
     setup: async () => postgresLibraryStore(await freshDatabase()),
     samples: librarySamples,
+    erasable: true,
   })
 
   it("creates the app's database if it's missing, and can run again", async () => {
@@ -230,5 +255,6 @@ describe.runIf(endpoint)('dynamo store', () => {
       return createDynamoStore({ client, table, name: 'progress' })
     },
     samples: progressSamples,
+    erasable: true,
   })
 })

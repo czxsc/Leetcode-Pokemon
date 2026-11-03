@@ -12,7 +12,7 @@ import { Signer } from '@aws-sdk/rds-signer'
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres'
 import pg from 'pg'
 import type { Library } from '../../../../shared/library.ts'
-import { type DocumentStore, UnavailableError } from '../../documents.ts'
+import { type ErasableStore, UnavailableError } from '../../documents.ts'
 import { createPostgresLibraryStore } from './library-store.ts'
 
 const PORT = 5432
@@ -66,11 +66,12 @@ export async function withConnection<T>(
   }
 }
 
-export function postgresLibraryStore(config: pg.ClientConfig): DocumentStore<Library> {
-  const run = <T>(fn: (store: DocumentStore<Library>) => Promise<T>) =>
+export function postgresLibraryStore(config: pg.ClientConfig): ErasableStore<Library> {
+  const run = <T>(fn: (store: ErasableStore<Library>) => Promise<T>) =>
     withConnection(config, (db) => fn(createPostgresLibraryStore(db)))
   return {
     load: (userId) => run((store) => store.load(userId)),
     save: (userId, data, baseRev) => run((store) => store.save(userId, data, baseRev)),
+    remove: (userId) => run((store) => store.remove(userId)),
   }
 }

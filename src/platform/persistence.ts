@@ -122,10 +122,12 @@ const local = {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export interface ServerAuth {
+  id: string // the account's user id, which keeps each account's unsaved changes apart
   // the current access token (kept fresh by the sign-in module)
   token(): string | null
   // the server said the token is no longer valid: sign in again
   renew(): void
+  signOut(): void
 }
 
 interface ServerData {
@@ -196,7 +198,30 @@ function serverBackend(auth: ServerAuth | null) {
     return out as WriteResult
   }
 
-  return { fetchData, write }
+  async function deleteAccount() {
+    const started = Date.now()
+    for (;;) {
+      let res
+      try {
+        res = await fetch('/api/account', { method: 'DELETE', headers: headers() })
+      } catch {
+        throw new Error('Can’t reach the PokéLeet server. Check your connection and try again.')
+      }
+      if (res.status === 503 && Date.now() - started < WAKE_TIMEOUT_MS) {
+        await sleep(WAKE_RETRY_MS) // the database is waking up
+        continue
+      }
+      const out = await res.json().catch(() => ({}))
+      if (res.status === 401) {
+        auth?.renew()
+        throw new Error(SESSION_MESSAGE)
+      }
+      if (!res.ok) throw new Error(out.error || `HTTP ${res.status}`)
+      return
+    }
+  }
+
+  return { fetchData, write, deleteAccount }
 }
 
 function browserBackend(): Backend {
@@ -219,14 +244,14 @@ function browserBackend(): Backend {
 // A stash is unsaved data a previous visit left behind. It is ours to
 // restore only if the server still holds the version it was based on (or
 // exactly the save that was in flight when the tab went away).
-function takeStash(name: DocName, doc: SavedDoc | null): object | null {
-  const stash = local.get(STASH_PREFIX + name)
+function takeStash(key: string, doc: SavedDoc | null): object | null {
+  const stash = local.get(key)
   if (!stash) return null
   const rev = doc ? doc.rev : 0
   const landed =
     rev === stash.baseRev + 1 && stash.sentHash && doc && hash(doc.data) === stash.sentHash
   if (rev === stash.baseRev || landed) return stash.data
-  local.remove(STASH_PREFIX + name) // saved since, from this tab or elsewhere
+  local.remove(key) // saved since, from this tab or elsewhere
   return null
 }
 
@@ -251,13 +276,16 @@ export async function openPersistence({
     backend = browserBackend()
   }
   const remote = !!server
+  // where unsaved changes wait in this browser, per account
+  const stashKey = (name: DocName) => STASH_PREFIX + (auth ? `${auth.id}:` : '') + name
+  let closed = false // the account is being deleted: save nothing more
 
   const initial = {} as Record<DocName, object | null>
   const restored: DocName[] = []
   for (const name of DOCS) {
     const doc = backend.docs[name]
     initial[name] = doc ? doc.data : null
-    const stashed = remote ? takeStash(name, doc) : null
+    const stashed = remote ? takeStash(stashKey(name), doc) : null
     if (stashed) {
       initial[name] = stashed
       restored.push(name)
@@ -303,8 +331,8 @@ export async function openPersistence({
       conflict: false,
       stash() {
         const data = pending || inflight?.data
-        if (!remote || !data || saver.conflict) return
-        local.set(STASH_PREFIX + name, {
+        if (!remote || !data || saver.conflict || closed) return
+        local.set(stashKey(name), {
           baseRev: saver.rev,
           sentHash: inflight ? inflight.hash : unconfirmed,
           data,
@@ -349,7 +377,7 @@ export async function openPersistence({
 
     async function run(keepalive = false) {
       timer = null
-      if (pending === null || inflight || saver.conflict) return
+      if (pending === null || inflight || saver.conflict || closed) return
       const data = pending
       const sent = { data, hash: hash(data) }
       inflight = sent
@@ -395,7 +423,7 @@ export async function openPersistence({
         timer = setTimeout(run, retryDelay)
         retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY)
       } else {
-        if (pending === null && remote && !saver.conflict) local.remove(STASH_PREFIX + name)
+        if (pending === null && remote && !saver.conflict) local.remove(stashKey(name))
         arm(SAVE_DELAY[name])
       }
       refresh()
@@ -482,7 +510,7 @@ export async function openPersistence({
   })
   window.addEventListener('online', () => DOCS.forEach((name) => savers[name].retryNow()))
   window.addEventListener('beforeunload', (event) => {
-    if (savers.library.conflict || !savers.library.busy()) return
+    if (closed || savers.library.conflict || !savers.library.busy()) return
     onHidden()
     event.preventDefault()
     event.returnValue = '' // older browsers only ask when this is set
@@ -509,6 +537,20 @@ export async function openPersistence({
     onResume(fn: () => void) {
       resumeListeners.add(fn)
       return () => resumeListeners.delete(fn)
+    },
+    // Cloud only: deletes the account and everything saved for it, then signs out.
+    async deleteAccount() {
+      if (!server || !auth) throw new Error('There’s no account to delete here.')
+      closed = true // no more saves, or copies of unsaved changes: the account is going
+      try {
+        await server.deleteAccount()
+      } catch (err) {
+        closed = false
+        DOCS.forEach((name) => savers[name].flush(false))
+        throw err
+      }
+      DOCS.forEach((name) => local.remove(stashKey(name)))
+      auth.signOut()
     },
   }
 }

@@ -36,6 +36,9 @@ flowchart LR
   that needs no account ([ADR 8](adr/0008-branded-sign-in-and-google.md)).
   The sign-up page links the privacy policy and terms (`public/privacy.html`,
   `public/terms.html`).
+- **People can delete their own account** from the Backups window: their
+  data in both databases, then their Cognito user
+  ([ADR 9](adr/0009-self-service-account-deletion.md)).
 - **No servers to keep warm.** Lambda, API Gateway, DynamoDB (on-demand) and
   Aurora (scales to zero when idle) all cost close to nothing when unused.
   Aurora runs in its express configuration: no VPC, reached over TLS with

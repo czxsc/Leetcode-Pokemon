@@ -1,6 +1,6 @@
 // The behavior every DocumentStore must have, run against each implementation.
 import { beforeEach, describe, expect, it } from 'vitest'
-import { ConflictError, type DocumentStore } from '../src/documents.ts'
+import { ConflictError, type DocumentStore, type ErasableStore } from '../src/documents.ts'
 
 export function documentStoreContract<T>(
   name: string,
@@ -8,6 +8,7 @@ export function documentStoreContract<T>(
     setup: () => Promise<DocumentStore<T>> | DocumentStore<T>
     samples: [T, T, T]
     users?: string[] // a single-user store (the local app) passes just its owner
+    erasable?: boolean // also an ErasableStore (the cloud's)
   },
 ) {
   const [a, b, c] = options.samples
@@ -52,6 +53,18 @@ export function documentStoreContract<T>(
       expect(await store.load(other)).toBeNull()
       expect((await store.save(other, b, 0)).rev).toBe(1)
       expect((await store.load(me))!.data).toEqual(a)
+    })
+
+    it.runIf(options.erasable)('forgets a user, and only that user', async () => {
+      const erasable = store as ErasableStore<T>
+      await store.save(me, a, 0)
+      await store.save(me, b, 1)
+      await store.save(other, c, 0)
+      await erasable.remove(me)
+      expect(await store.load(me)).toBeNull()
+      expect((await store.load(other))!.data).toEqual(c)
+      expect((await store.save(me, a, 0)).rev).toBe(1) // starts over
+      await erasable.remove('nobody') // nothing to delete
     })
   })
 }

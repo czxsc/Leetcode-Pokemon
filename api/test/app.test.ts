@@ -122,6 +122,52 @@ describe('API', () => {
     expect((await app.request('/api/data')).status).toBe(503)
   })
 
+  describe('deleting an account', () => {
+    function cloud(user: string) {
+      const stores = { progress: memoryStore<object>(), library: memoryStore<Library>() }
+      const deleteSignIn = vi.fn(async () => {})
+      const app = createApp({
+        stores,
+        identify: () => user,
+        lookup: vi.fn(),
+        mode: 'cloud',
+        location: '',
+        deleteSignIn,
+      })
+      return { stores, deleteSignIn, app }
+    }
+    const del = (app: ReturnType<typeof createApp>) =>
+      app.request('/api/account', { method: 'DELETE' })
+
+    it("removes the user's data, then their sign-in", async () => {
+      const { stores, deleteSignIn, app } = cloud('u')
+      await stores.progress.save('u', { coins: 1 }, 0)
+      await stores.library.save('u', librarySamples[0], 0)
+      await stores.progress.save('someone-else', { coins: 2 }, 0)
+      const res = await del(app)
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ deleted: true })
+      expect(await stores.progress.load('u')).toBeNull()
+      expect(await stores.library.load('u')).toBeNull()
+      expect((await stores.progress.load('someone-else'))!.data).toEqual({ coins: 2 })
+      expect(deleteSignIn).toHaveBeenCalledOnce()
+    })
+
+    it('keeps the sign-in if the data could not be removed, so it can be tried again', async () => {
+      const { stores, deleteSignIn, app } = cloud('u')
+      stores.library.remove = async () => {
+        throw new UnavailableError()
+      }
+      expect((await del(app)).status).toBe(503)
+      expect(deleteSignIn).not.toHaveBeenCalled()
+    })
+
+    it("isn't offered by the local app, which has no accounts", async () => {
+      const { app } = setup()
+      expect((await del(app)).status).toBe(404)
+    })
+  })
+
   it('answers unknown routes with JSON', async () => {
     const { app } = setup()
     const res = await app.request('/api/nope')

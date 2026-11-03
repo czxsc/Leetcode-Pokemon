@@ -7,6 +7,7 @@
      PUT /api/progress         <- { rev, data }  -> { rev, savedAt }
      PUT /api/library          <- { rev, data }  -> { rev, savedAt, warning }
      GET /api/leetcode?slug=   -> { problem }    (title, difficulty, tags...)
+     DELETE /api/account       -> { deleted }    (cloud only: the account and its data)
 
    Every JSON response carries `api: 'pokeleet'`, so the web app can tell
    it apart from a static host answering with a web page.
@@ -16,21 +17,28 @@ import { bodyLimit } from 'hono/body-limit'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { z } from 'zod'
 import { type Library, LibrarySchema } from '../../shared/library.ts'
-import { type DocumentStore, HttpError } from './documents.ts'
+import { type DocumentStore, type ErasableStore, HttpError } from './documents.ts'
 import type { LeetCodeProblem } from './leetcode.ts'
 
 // A progress document is stored as one DynamoDB item (max 400 KB) in the cloud.
 export const PROGRESS_MAX_BYTES = 350_000
 const BODY_MAX_BYTES = 5_000_000
 
-export interface AppOptions {
-  stores: { progress: DocumentStore<object>; library: DocumentStore<Library> }
+export type AppOptions = {
   // the signed-in user's id, or null (-> 401)
   identify: (c: Context) => string | null
   lookup: (slug: string) => Promise<LeetCodeProblem>
   mode: 'local' | 'cloud'
   location: string // where the data lives, as shown to the user
-}
+} & (
+  | { stores: { progress: DocumentStore<object>; library: DocumentStore<Library> } }
+  | {
+      stores: { progress: ErasableStore<object>; library: ErasableStore<Library> }
+      // Cloud only: deletes the user's sign-in once their data is gone. Without
+      // it there's no DELETE /api/account (the local app has no accounts).
+      deleteSignIn: (c: Context) => Promise<void>
+    }
+)
 
 const SaveBody = z.object({ rev: z.number().int().min(0), data: z.unknown() })
 
@@ -50,7 +58,8 @@ function zodMessage(err: z.ZodError) {
   return `${issue.path.join('.') || 'body'}: ${issue.message}`
 }
 
-export function createApp({ stores, identify, lookup, mode, location }: AppOptions) {
+export function createApp(options: AppOptions) {
+  const { stores, identify, lookup, mode, location } = options
   const app = new Hono<{ Variables: { userId: string } }>().basePath('/api')
 
   // Every route acts on behalf of a user.
@@ -91,6 +100,17 @@ export function createApp({ stores, identify, lookup, mode, location }: AppOptio
   )
 
   app.get('/leetcode', async (c) => send(c, { problem: await lookup(c.req.query('slug') || '') }))
+
+  if ('deleteSignIn' in options) {
+    const { stores, deleteSignIn } = options
+    // Data first: if deleting the sign-in then fails, the user can try again.
+    app.delete('/account', async (c) => {
+      const userId = c.get('userId')
+      await Promise.all([stores.progress.remove(userId), stores.library.remove(userId)])
+      await deleteSignIn(c)
+      return send(c, { deleted: true })
+    })
+  }
 
   app.notFound((c) => send(c, { error: `No API route for ${c.req.method} ${c.req.path}` }, 404))
 

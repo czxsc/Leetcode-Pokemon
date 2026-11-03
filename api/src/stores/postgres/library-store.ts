@@ -8,7 +8,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type { Library, Problem } from '../../../../shared/library.ts'
-import { ConflictError, type DocumentStore } from '../../documents.ts'
+import { ConflictError, type ErasableStore } from '../../documents.ts'
 import { customTags, libraries, problems, problemTags } from './schema.ts'
 
 // Works with any Postgres driver (PGlite in tests, node-postgres in the cloud).
@@ -91,7 +91,7 @@ async function readLibrary(db: Db, userId: string) {
   return { rows, tagsOf, custom }
 }
 
-export function createPostgresLibraryStore(db: Db): DocumentStore<Library> {
+export function createPostgresLibraryStore(db: Db): ErasableStore<Library> {
   return {
     async load(userId) {
       const [lib] = await db.select().from(libraries).where(eq(libraries.userId, userId))
@@ -192,5 +192,10 @@ export function createPostgresLibraryStore(db: Db): DocumentStore<Library> {
         }
         return { rev, savedAt: savedAt.toISOString() }
       }),
+
+    // the user's problems, their tags and custom tags go with it (on delete cascade)
+    async remove(userId) {
+      await db.delete(libraries).where(eq(libraries.userId, userId))
+    },
   }
 }

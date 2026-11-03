@@ -3,10 +3,16 @@
    checked the Cognito access token, so the user is the token's `sub`.
    Game progress lives in DynamoDB, the problem library in Aurora
    PostgreSQL (signing in with IAM tokens, see stores/postgres/connection.ts).
+   Deleting an account removes both, then the Cognito user.
    Configuration comes from the environment (set by infra/lib/api.ts).
 ===================================================================== */
+import {
+  AdminDeleteUserCommand,
+  CognitoIdentityProviderClient,
+} from '@aws-sdk/client-cognito-identity-provider'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
+import type { Context } from 'hono'
 import { handle } from 'hono/aws-lambda'
 import { createApp } from './app.ts'
 import { fetchLeetCodeProblem } from './leetcode.ts'
@@ -24,6 +30,15 @@ interface LambdaEnv {
   event?: { requestContext?: { authorizer?: { jwt?: { claims?: Record<string, unknown> } } } }
 }
 
+// The access token's claims, which API Gateway checked and passes along.
+function claim(c: Context, name: string): string | null {
+  const claims = (c.env as LambdaEnv | undefined)?.event?.requestContext?.authorizer?.jwt?.claims
+  const value = claims?.[name]
+  return typeof value === 'string' ? value : null
+}
+
+const cognito = new CognitoIdentityProviderClient({})
+
 const app = createApp({
   stores: {
     progress: createDynamoStore({
@@ -37,15 +52,18 @@ const app = createApp({
       iamAuth({ host: env('DB_HOST'), database: env('DB_NAME'), user: env('DB_USER') }),
     ),
   },
-  // API Gateway already checked the token; its claims arrive with the event.
-  identify: (c) => {
-    const sub = (c.env as LambdaEnv | undefined)?.event?.requestContext?.authorizer?.jwt?.claims
-      ?.sub
-    return typeof sub === 'string' ? sub : null
-  },
+  identify: (c) => claim(c, 'sub'),
   lookup: fetchLeetCodeProblem,
   mode: 'cloud',
   location: 'your PokéLeet account',
+  async deleteSignIn(c) {
+    // Cognito's own user name (a UUID, or google_<id> for Google sign-ins)
+    const username = claim(c, 'username')
+    if (!username) throw new Error('The access token has no username claim')
+    await cognito.send(
+      new AdminDeleteUserCommand({ UserPoolId: env('USER_POOL_ID'), Username: username }),
+    )
+  },
 })
 
 export const handler = handle(app)

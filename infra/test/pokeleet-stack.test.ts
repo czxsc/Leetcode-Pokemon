@@ -78,6 +78,18 @@ describe('PokeleetStack', () => {
     })
   })
 
+  it('lets the API delete Cognito users (account deletion) and do nothing else with them', () => {
+    const api = Object.entries(dev.findResources('AWS::IAM::Policy')).find(([id]) =>
+      id.startsWith('ApiHandlerServiceRoleDefaultPolicy'),
+    )!
+    const cognito = api[1].Properties.PolicyDocument.Statement.filter((s: { Action: unknown }) =>
+      JSON.stringify(s.Action).includes('cognito-idp'),
+    )
+    expect(cognito.map((s: { Action: unknown }) => s.Action)).toEqual([
+      'cognito-idp:AdminDeleteUser',
+    ])
+  })
+
   it('requires a Cognito token on every API route, and rate-limits the API', () => {
     dev.hasResourceProperties('AWS::ApiGatewayV2::Authorizer', { AuthorizerType: 'JWT' })
     const routes = dev.findResources('AWS::ApiGatewayV2::Route')

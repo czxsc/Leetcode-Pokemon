@@ -7,8 +7,13 @@
    Single-table keys:  pk = USER#<user id>   sk = DOC#<name>
 ===================================================================== */
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb'
-import { type DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb'
-import { ConflictError, type DocumentStore } from '../documents.ts'
+import {
+  DeleteCommand,
+  type DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+} from '@aws-sdk/lib-dynamodb'
+import { ConflictError, type ErasableStore } from '../documents.ts'
 
 export function createDynamoStore<T extends object>({
   client,
@@ -18,7 +23,7 @@ export function createDynamoStore<T extends object>({
   client: DynamoDBDocumentClient
   table: string
   name: string
-}): DocumentStore<T> {
+}): ErasableStore<T> {
   const key = (userId: string) => ({ pk: `USER#${userId}`, sk: `DOC#${name}` })
 
   async function load(userId: string) {
@@ -57,6 +62,9 @@ export function createDynamoStore<T extends object>({
         throw err
       }
       return { rev, savedAt }
+    },
+    async remove(userId) {
+      await client.send(new DeleteCommand({ TableName: table, Key: key(userId) }))
     },
   }
 }

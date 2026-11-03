@@ -3,7 +3,8 @@
    route requires a valid Cognito access token, checked by API Gateway
    before the Lambda runs; the stage is rate-limited to cap the cost of
    abuse. Game progress goes to a DynamoDB table, the library to the
-   Aurora cluster.
+   Aurora cluster. The Lambda may also delete Cognito users, for people
+   deleting their own account.
 ===================================================================== */
 import * as apigw from 'aws-cdk-lib/aws-apigatewayv2'
 import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers'
@@ -26,10 +27,15 @@ export class Api extends Construct {
 
     const handler = apiFunction(this, 'Handler', {
       entry: 'api/src/lambda.ts',
-      environment: { TABLE_NAME: table.tableName, ...database.environment() },
+      environment: {
+        TABLE_NAME: table.tableName,
+        USER_POOL_ID: auth.userPool.userPoolId,
+        ...database.environment(),
+      },
     })
     table.grantReadWriteData(handler)
     database.grantAccess(handler)
+    auth.userPool.grant(handler, 'cognito-idp:AdminDeleteUser') // DELETE /api/account
 
     this.httpApi = new apigw.HttpApi(this, 'Http', {
       createDefaultStage: false,

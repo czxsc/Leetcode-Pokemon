@@ -23,6 +23,13 @@ export interface DocumentStore<T> {
   save(userId: string, data: T, baseRev: number): Promise<SaveResult>
 }
 
+// A store that can also forget a user: the cloud's, for deleting accounts.
+// (The local app's files are never deleted through the API.)
+export interface ErasableStore<T> extends DocumentStore<T> {
+  // Deletes everything kept for the user. Nothing to delete is fine.
+  remove(userId: string): Promise<void>
+}
+
 export class HttpError extends Error {
   constructor(
     readonly status: number,

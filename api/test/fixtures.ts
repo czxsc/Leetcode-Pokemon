@@ -1,6 +1,6 @@
 // Sample documents for the API tests.
 import type { Library, Problem } from '../../shared/library.ts'
-import type { DocumentStore, StoredDoc } from '../src/documents.ts'
+import type { ErasableStore, StoredDoc } from '../src/documents.ts'
 import { ConflictError } from '../src/documents.ts'
 
 export const problem = (id: string, over: Partial<Problem> = {}): Problem => ({
@@ -45,7 +45,7 @@ export const progressSamples: [object, object, object] = [
 ]
 
 // An in-memory DocumentStore, for testing the routes.
-export function memoryStore<T>(): DocumentStore<T> {
+export function memoryStore<T>(): ErasableStore<T> {
   const docs = new Map<string, StoredDoc<T>>()
   return {
     async load(userId) {
@@ -57,6 +57,9 @@ export function memoryStore<T>(): DocumentStore<T> {
       const doc = { rev: current + 1, savedAt: new Date().toISOString(), data }
       docs.set(userId, doc)
       return { rev: doc.rev, savedAt: doc.savedAt }
+    },
+    async remove(userId) {
+      docs.delete(userId)
     },
   }
 }

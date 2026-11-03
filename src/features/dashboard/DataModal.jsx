@@ -1,13 +1,52 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { config } from '../../config'
 import { todayLocal } from '../../game/dates'
 import { store, useSaveStatus } from '../../state/store'
 import { hintStyle } from './shared'
 
+// ---------- deleting the account (cloud app) ----------
+function DeleteAccount({ onCancel }) {
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState(null)
+  const ref = useRef(null)
+  useEffect(() => ref.current?.scrollIntoView({ block: 'nearest' }), [])
+  async function deleteAccount() {
+    setDeleting(true)
+    setError(null)
+    try {
+      await store.deleteAccount() // signs out, leaving the page
+    } catch (err) {
+      setError(err.message || 'Could not delete your account.')
+      setDeleting(false)
+    }
+  }
+  return (
+    <div ref={ref} className="chip-card demo-warning">
+      <div className="demo-warning-title">⚠ Delete your account?</div>
+      <p style={{ margin: '0 0 10px', fontSize: 13, lineHeight: 1.5, color: 'var(--ink)' }}>
+        This permanently deletes your account, problems and progress. It can&rsquo;t be undone, so
+        export a backup first if you want a copy.
+      </p>
+      {error ? (
+        <div style={{ fontSize: 13, color: 'var(--hard)', marginBottom: 10 }}>{'✖ ' + error}</div>
+      ) : null}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-end' }}>
+        <button className="btn" type="button" disabled={deleting} onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="btn pink" type="button" disabled={deleting} onClick={deleteAccount}>
+          {deleting ? 'Deleting…' : 'Delete everything'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ---------- data / backups ----------
 export function DataModal({ onClose }) {
   const status = useSaveStatus()
   const [msg, setMsg] = useState(null)
+  const [askDelete, setAskDelete] = useState(false)
   const fileRef = useRef(null)
   const disk = status.mode === 'local'
   function exportBackup() {
@@ -209,12 +248,22 @@ export function DataModal({ onClose }) {
             {(msg.ok ? '✔ ' : '✖ ') + msg.text}
           </div>
         ) : null}
+        {askDelete ? <DeleteAccount onCancel={() => setAskDelete(false)} /> : null}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: askDelete ? 14 : 0,
           }}
         >
+          {status.mode === 'cloud' && !askDelete ? (
+            <button className="iconbtn" type="button" onClick={() => setAskDelete(true)}>
+              Delete account…
+            </button>
+          ) : (
+            <span />
+          )}
           <button className="btn" onClick={onClose}>
             Close
           </button>

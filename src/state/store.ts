@@ -121,6 +121,8 @@ export const store = {
     saveSubs.add(fn)
   },
   onResume: (fn: () => void) => persistence.onResume(fn),
+  // cloud only: deletes the account and its data, then signs out
+  deleteAccount: () => persistence.deleteAccount(),
 
   // ---- collection ----
   addShards: (n: number) => set(Collection.addShards(state, n)),
