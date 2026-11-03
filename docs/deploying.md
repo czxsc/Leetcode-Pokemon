@@ -114,6 +114,11 @@ To change the secret later, update it in Secrets Manager
 and external providers → Google**): CloudFormation only reads the secret when
 the Google provider itself changes.
 
+One email address is one account: the first Google sign-in with the
+(verified) email of an existing account is linked to it
+(`api/src/pre-sign-up.ts`), and a password sign-up for an email that already
+uses Google is refused.
+
 ## Study sessions on the cloud app
 
 The PokéLeet Tracker extension only runs on the sites listed in

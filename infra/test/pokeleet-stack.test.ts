@@ -130,6 +130,21 @@ describe('PokeleetStack', () => {
     expect(terms.find(([name]) => name === 'privacy-policy')![1]).toContain('/privacy.html')
   })
 
+  it('links sign-ins with the same email: a pre sign-up trigger allowed to do just that', () => {
+    dev.hasResourceProperties('AWS::Cognito::UserPool', {
+      LambdaConfig: { PreSignUp: Match.anyValue() },
+    })
+    const policy = Object.entries(dev.findResources('AWS::IAM::Policy')).find(([id]) =>
+      id.startsWith('AuthPreSignUpAccess'),
+    )!
+    expect(policy[1].Properties.PolicyDocument.Statement).toEqual([
+      expect.objectContaining({
+        Action: ['cognito-idp:ListUsers', 'cognito-idp:AdminLinkProviderForUser'],
+        Resource: { 'Fn::GetAtt': [expect.stringMatching(/^AuthUsers/), 'Arn'] },
+      }),
+    ])
+  })
+
   it('offers Google sign-in only when given a Google client, keeping its secret out of the template', () => {
     dev.resourceCountIs('AWS::Cognito::UserPoolIdentityProvider', 0)
     const google = synth('dev', { googleClientId: 'abc.apps.googleusercontent.com' })

@@ -27,6 +27,12 @@ quickly, or look around without an account.
   **Try the demo**. Cognito's pages can't hold a link of our own, so the demo
   needs this screen. It also shows why a sign-in didn't finish, from the error
   Cognito sends back.
+- **One email address, one account.** A Cognito pre sign-up trigger
+  (`api/src/pre-sign-up.ts`) links the first Google sign-in to the existing
+  account with the same email, when both sides have verified it, and refuses
+  a password sign-up for an email that already uses Google. Cognito turns down
+  the very first sign-in it links ("Already found an entry for username"), so
+  the web app retries it once.
 - **The demo runs on the cloud app too**, at `?demo`: the same browser-only
   mode as the GitHub Pages demo, with copy that offers an account instead of
   cloning the repo.

@@ -16,6 +16,7 @@ export interface Session {
 }
 
 const appUrl = () => window.location.origin + import.meta.env.BASE_URL
+const RETRIED_KEY = 'pokeleet:sign-in-retried'
 
 function userManager(cfg: AuthConfig) {
   return new UserManager({
@@ -58,6 +59,14 @@ export async function restoreSession(
       user = null
     }
     window.history.replaceState(null, '', appUrl())
+    // Cognito turns down the first Google sign-in it links to an existing
+    // account (api/src/pre-sign-up.ts); signing in again goes through.
+    const linked = error?.match(/already found an entry for username ([a-z]+)_/i)
+    if (linked && !sessionStorage.getItem(RETRIED_KEY)) {
+      sessionStorage.setItem(RETRIED_KEY, '1')
+      return signIn(cfg, linked[1].toLowerCase() === 'google' ? 'Google' : undefined)
+    }
+    sessionStorage.removeItem(RETRIED_KEY)
   } else {
     user = await manager.getUser()
     if (user?.expired)

@@ -1,13 +1,17 @@
 /* =====================================================================
    Sign-in: a Cognito user pool with its managed sign-in pages, styled
    like the app (sign-in-style.ts), and optionally "Continue with
-   Google". The web app uses the authorization code flow with PKCE (a
-   public client, no secret); API Gateway checks the resulting access
-   tokens.
+   Google". One email is one account: a pre sign-up trigger links a
+   Google sign-in to the account that already has its email
+   (api/src/pre-sign-up.ts).
+   The web app uses the authorization code flow with PKCE (a public
+   client, no secret); API Gateway checks the resulting access tokens.
 ===================================================================== */
 import { Duration, Lazy, RemovalPolicy, SecretValue, Stack } from 'aws-cdk-lib'
 import * as cognito from 'aws-cdk-lib/aws-cognito'
+import * as iam from 'aws-cdk-lib/aws-iam'
 import { Construct } from 'constructs'
+import { apiFunction } from './bundling.ts'
 import { signInAssets, signInSettings } from './sign-in-style.ts'
 
 export interface GoogleSignIn {
@@ -30,6 +34,8 @@ export class Auth extends Construct {
   constructor(scope: Construct, id: string, { prod, domainPrefix, google }: AuthProps) {
     super(scope, id)
 
+    const preSignUp = apiFunction(this, 'PreSignUp', { entry: 'api/src/pre-sign-up.ts' })
+
     this.userPool = new cognito.UserPool(this, 'Users', {
       // Essentials for the styled sign-in pages (Lite only has the classic
       // ones); both are free up to 10,000 monthly users.
@@ -42,6 +48,18 @@ export class Auth extends Construct {
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       deletionProtection: prod,
       removalPolicy: prod ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+      lambdaTriggers: { preSignUp },
+    })
+    // Its own policy, not the function's: the pool depends on the function,
+    // and this depends on the pool, so the function mustn't depend on this.
+    new iam.Policy(this, 'PreSignUpAccess', {
+      roles: [preSignUp.role!],
+      statements: [
+        new iam.PolicyStatement({
+          actions: ['cognito-idp:ListUsers', 'cognito-idp:AdminLinkProviderForUser'],
+          resources: [this.userPool.userPoolArn],
+        }),
+      ],
     })
 
     this.domain = this.userPool.addDomain('SignIn', {
