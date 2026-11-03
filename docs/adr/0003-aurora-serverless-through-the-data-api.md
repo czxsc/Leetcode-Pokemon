@@ -1,6 +1,6 @@
 # 3. Aurora PostgreSQL Serverless v2, reached through the RDS Data API
 
-**Status:** accepted
+**Status:** superseded by [ADR 7](0007-aurora-express-configuration-with-iam-sign-in.md)
 
 ## Context
 

@@ -24,11 +24,12 @@ npm test               # Vitest: game rules, API, stores
 npm run build
 ```
 
-The DynamoDB store's tests need DynamoDB Local; without it they're skipped:
+Some store tests need DynamoDB Local and a PostgreSQL server; without them
+they're skipped:
 
 ```bash
 docker compose up -d
-DYNAMODB_ENDPOINT=http://localhost:8000 npm test
+DYNAMODB_ENDPOINT=http://localhost:8000 POSTGRES_URL=postgres://postgres:local@localhost:5432/postgres npm test
 ```
 
 Infrastructure changes: `cd infra && npm install && npm test && npx cdk synth`.

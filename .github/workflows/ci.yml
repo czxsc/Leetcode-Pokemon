@@ -14,12 +14,19 @@ jobs:
     name: Web app and API
     runs-on: ubuntu-latest
     services:
-      # stand-in for the cloud's DynamoDB, for the DynamoDB store's tests
+      # stand-ins for the cloud's databases, for the stores' integration tests
       dynamodb:
         image: amazon/dynamodb-local:latest
         ports: ['8000:8000']
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: local
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 2s --health-retries 15
     env:
       DYNAMODB_ENDPOINT: http://localhost:8000
+      POSTGRES_URL: postgres://postgres:local@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

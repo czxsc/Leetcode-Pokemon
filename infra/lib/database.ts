@@ -1,64 +1,63 @@
 /* =====================================================================
-   Aurora PostgreSQL Serverless v2 for the problem library.
-   - Scales to zero ACUs after AUTO_PAUSE idle, so an unused app costs
-     only storage; the first request after that waits a few seconds.
-   - Reached through the RDS Data API (HTTPS + IAM), so Lambdas need no
-     VPC, NAT gateway or connection pool. The VPC exists only to host the
-     cluster: isolated subnets, no internet access.
-   - Schema changes ship as SQL migrations (api/drizzle/), applied by a
-     Lambda that runs after each deploy that changes them.
+   Aurora PostgreSQL Serverless v2 for the problem library, created with
+   Aurora's express configuration (which the AWS Free plan requires):
+   - No VPC. The cluster is reached through Aurora's internet access
+     gateway, over TLS, and only with IAM authentication: short-lived
+     tokens, no passwords anywhere.
+   - Scales to zero ACUs after 5 idle minutes (express configuration's
+     default), so an unused app costs only storage; the first request
+     after that waits a few seconds.
+   - Two database users: the master (postgres), used only by migrations,
+     and the API's user, which may only read and write the app's tables.
+   - The app's database and its schema are created by a Lambda that runs
+     after each deploy that changes it, applying the SQL migrations in
+     api/drizzle/. (Express configuration can't create a database along
+     with the cluster.)
 ===================================================================== */
 import path from 'node:path'
-import { Duration, RemovalPolicy } from 'aws-cdk-lib'
-import * as ec2 from 'aws-cdk-lib/aws-ec2'
+import { ArnFormat, Duration, RemovalPolicy, Stack, Validations } from 'aws-cdk-lib'
+import * as iam from 'aws-cdk-lib/aws-iam'
 import type * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as rds from 'aws-cdk-lib/aws-rds'
 import * as triggers from 'aws-cdk-lib/triggers'
 import { Construct } from 'constructs'
 import { apiFunction, REPO_ROOT } from './bundling.ts'
 
-const DB_NAME = 'pokeleet'
-const AUTO_PAUSE = Duration.minutes(10)
+const DB_NAME = 'pokeleet' // created by api/src/migrate.ts
+const MASTER_USER = 'postgres' // express configuration's default
+const APP_USER = 'pokeleet_app' // created by api/src/migrate.ts
 
 export class Database extends Construct {
-  readonly cluster: rds.DatabaseCluster
+  readonly cluster: rds.CfnDBCluster
 
   constructor(scope: Construct, id: string, { prod }: { prod: boolean }) {
     super(scope, id)
 
-    const vpc = new ec2.Vpc(this, 'Vpc', {
-      maxAzs: 2, // Aurora needs subnets in two availability zones
-      natGateways: 0,
-      subnetConfiguration: [{ name: 'db', subnetType: ec2.SubnetType.PRIVATE_ISOLATED }],
-    })
-
-    this.cluster = new rds.DatabaseCluster(this, 'Cluster', {
-      engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.VER_16_13,
-      }),
-      writer: rds.ClusterInstance.serverlessV2('writer'),
-      serverlessV2MinCapacity: 0,
-      serverlessV2MaxCapacity: 2,
-      serverlessV2AutoPauseDuration: AUTO_PAUSE,
-      enableDataApi: true,
-      credentials: rds.Credentials.fromGeneratedSecret('pokeleet'),
-      defaultDatabaseName: DB_NAME,
-      vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
-      storageEncrypted: true,
-      backup: { retention: Duration.days(prod ? 7 : 1) },
+    // Only settings express configuration accepts at creation; it rejects the
+    // rest (an initial database name, for one).
+    this.cluster = new rds.CfnDBCluster(this, 'Cluster', {
+      engine: 'aurora-postgresql', // version: express configuration's default
+      serverlessV2ScalingConfiguration: { minCapacity: 0, maxCapacity: 2 },
       deletionProtection: prod,
-      removalPolicy: prod ? RemovalPolicy.SNAPSHOT : RemovalPolicy.DESTROY,
     })
+    // Not in aws-cdk-lib's types or bundled schema yet (CloudFormation has it).
+    // Also sets up the internet access gateway and IAM sign-in for the master
+    // user, and creates the serverless writer.
+    this.cluster.addPropertyOverride('WithExpressConfiguration', true)
+    Validations.of(this.cluster).acknowledge({
+      id: 'CloudFormation-Validate::F3002',
+      reason: 'WithExpressConfiguration is newer than the bundled CloudFormation schema',
+    })
+    this.cluster.applyRemovalPolicy(prod ? RemovalPolicy.SNAPSHOT : RemovalPolicy.DESTROY)
 
     // Apply SQL migrations after the cluster exists, and again whenever they change.
     const migrate = apiFunction(this, 'Migrate', {
       entry: 'api/src/migrate.ts',
       timeout: Duration.minutes(5), // allows for the database waking up
-      environment: this.environment(),
+      environment: { ...this.environment(MASTER_USER), DB_APP_USER: APP_USER },
       copyIntoBundle: { from: path.join(REPO_ROOT, 'api', 'drizzle'), to: 'drizzle' },
     })
-    this.grantAccess(migrate)
+    this.grantAccess(migrate, MASTER_USER)
     new triggers.Trigger(this, 'MigrateOnDeploy', {
       handler: migrate,
       executeAfter: [this.cluster],
@@ -66,16 +65,25 @@ export class Database extends Construct {
     })
   }
 
-  // What api/src/stores/postgres/data-api.ts reads.
-  environment(): Record<string, string> {
-    return {
-      DB_NAME,
-      DB_CLUSTER_ARN: this.cluster.clusterArn,
-      DB_SECRET_ARN: this.cluster.secret!.secretArn,
-    }
+  // What api/src/stores/postgres/connection.ts (iamAuth) reads.
+  environment(user = APP_USER): Record<string, string> {
+    return { DB_HOST: this.cluster.attrEndpointAddress, DB_NAME, DB_USER: user }
   }
 
-  grantAccess(fn: lambda.IFunction) {
-    this.cluster.grantDataApiAccess(fn) // rds-data:* on the cluster, and reading its secret
+  // Lets fn sign in to the database as `user`, and as no one else.
+  grantAccess(fn: lambda.IFunction, user = APP_USER) {
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['rds-db:connect'],
+        resources: [
+          Stack.of(this).formatArn({
+            service: 'rds-db',
+            resource: 'dbuser',
+            resourceName: `${this.cluster.attrDbClusterResourceId}/${user}`,
+            arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+          }),
+        ],
+      }),
+    )
   }
 }

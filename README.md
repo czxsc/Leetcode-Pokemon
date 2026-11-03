@@ -106,7 +106,7 @@ devices. See [docs/deploying.md](docs/deploying.md).
   Lambda, DynamoDB, and Aurora Serverless v2 (scales to zero), all defined with
   the **AWS CDK** (`infra/`).
 - **CI/CD:** GitHub Actions runs lint, type checks, unit tests and
-  integration tests (including DynamoDB Local), and a CDK synth. It deploys
+  integration tests (against DynamoDB Local and PostgreSQL), and a CDK synth. It deploys
   `main` to AWS through GitHub OIDC, with no stored keys.
 
 More in [docs/architecture.md](docs/architecture.md), with the reasoning behind

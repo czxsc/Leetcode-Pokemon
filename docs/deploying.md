@@ -9,10 +9,9 @@ At personal scale, almost everything stays within AWS's free allowances or
 costs cents. Lambda, API Gateway, DynamoDB on-demand, CloudFront, S3, and
 Cognito are free up to 10,000 monthly users. The database is the main cost:
 
-- **Aurora Serverless v2** pauses after 10 idle minutes. While paused you pay
+- **Aurora Serverless v2** pauses after 5 idle minutes. While paused you pay
   only for storage (cents per month); while awake, roughly $0.06 per hour at
   the minimum size.
-- **Secrets Manager** holds the database password: $0.40 per month.
 
 Pass a `budgetEmail` (below) to get an email at 80% and 100% of a $5 monthly
 budget.
@@ -20,7 +19,9 @@ budget.
 ## First deploy (from your computer)
 
 You need an AWS account, the [AWS CLI](https://aws.amazon.com/cli/) signed in
-(`aws configure sso` or `aws configure`), and Node.js 24.
+(`aws login`), and Node.js 24. The AWS Free plan works: the database uses
+Aurora's express configuration, which Free plan accounts require
+([ADR 7](adr/0007-aurora-express-configuration-with-iam-sign-in.md)).
 
 ```bash
 npm install && npm run build      # the app, built into dist/

@@ -1,9 +1,15 @@
 # Local stand-ins for the cloud's databases, for the integration tests:
 #   docker compose up -d
-#   DYNAMODB_ENDPOINT=http://localhost:8000 npm test
+#   DYNAMODB_ENDPOINT=http://localhost:8000 POSTGRES_URL=postgres://postgres:local@localhost:5432/postgres npm test
 services:
   dynamodb:
     image: amazon/dynamodb-local:latest
     command: -jar DynamoDBLocal.jar -inMemory -sharedDb
     ports:
       - '8000:8000'
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: local
+    ports:
+      - '5432:5432'

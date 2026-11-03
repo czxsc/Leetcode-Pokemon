@@ -4,7 +4,7 @@
 ===================================================================== */
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Duration } from 'aws-cdk-lib'
+import { Duration, RemovalPolicy } from 'aws-cdk-lib'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as logs from 'aws-cdk-lib/aws-logs'
@@ -34,11 +34,16 @@ export function apiFunction(scope: Construct, id: string, props: ApiFunctionProp
     memorySize: 512,
     timeout: props.timeout ?? Duration.seconds(15),
     environment: { NODE_OPTIONS: '--enable-source-maps', ...props.environment },
-    logGroup: new logs.LogGroup(scope, `${id}Logs`, { retention: logs.RetentionDays.TWO_WEEKS }),
+    logGroup: new logs.LogGroup(scope, `${id}Logs`, {
+      retention: logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: RemovalPolicy.DESTROY, // don't outlive the stack (or a failed first deploy)
+    }),
     bundling: {
       minify: true,
       sourceMap: true,
-      externalModules: [], // bundle the AWS SDK too: the versions the tests ran against
+      // Bundle the AWS SDK too (the versions the tests ran against). pg-native is
+      // pg's optional native driver, which is never loaded.
+      externalModules: ['pg-native'],
       commandHooks: copy
         ? {
             beforeBundling: () => [],

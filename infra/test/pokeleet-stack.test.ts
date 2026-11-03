@@ -29,18 +29,35 @@ describe('PokeleetStack', () => {
     prod = synth('prod')
   })
 
-  it('runs Aurora PostgreSQL Serverless v2 that pauses when idle, behind the Data API', () => {
+  it('runs Aurora PostgreSQL Serverless v2 in express configuration, pausing when idle', () => {
     dev.hasResourceProperties('AWS::RDS::DBCluster', {
       Engine: 'aurora-postgresql',
-      EnableHttpEndpoint: true,
-      StorageEncrypted: true,
-      ServerlessV2ScalingConfiguration: Match.objectLike({ MinCapacity: 0 }),
+      WithExpressConfiguration: true,
+      // express configuration's default pause (5 minutes); its create rejects
+      // settings it doesn't support, such as an initial database
+      ServerlessV2ScalingConfiguration: Match.exact({ MinCapacity: 0, MaxCapacity: 2 }),
+      DatabaseName: Match.absent(),
     })
   })
 
-  it('pays for no NAT gateway, and gives the database no internet access', () => {
-    dev.resourceCountIs('AWS::EC2::NatGateway', 0)
-    dev.resourceCountIs('AWS::EC2::InternetGateway', 0)
+  it('needs no VPC and stores no database password', () => {
+    dev.resourceCountIs('AWS::EC2::VPC', 0)
+    dev.resourceCountIs('AWS::SecretsManager::Secret', 0)
+  })
+
+  it('lets the API sign in to the database as its own user only, and migrations as the master', () => {
+    const grants = Object.values(dev.findResources('AWS::IAM::Policy'))
+      .flatMap((p) => p.Properties.PolicyDocument.Statement)
+      .filter((s) => s.Action === 'rds-db:connect')
+      .map((s) => JSON.stringify(s.Resource))
+    expect(grants).toHaveLength(2)
+    expect(grants.some((r) => r.includes('/pokeleet_app'))).toBe(true)
+    expect(grants.some((r) => r.includes('/postgres'))).toBe(true)
+    const api = Object.entries(dev.findResources('AWS::IAM::Policy')).find(([id]) =>
+      id.startsWith('ApiHandlerServiceRoleDefaultPolicy'),
+    )!
+    expect(JSON.stringify(api[1])).toContain('/pokeleet_app')
+    expect(JSON.stringify(api[1])).not.toContain('/postgres')
   })
 
   it('keeps game progress in an on-demand DynamoDB table with point-in-time recovery', () => {

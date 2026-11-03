@@ -20,7 +20,7 @@ flowchart LR
   CF -->|/api/*| APIGW[API Gateway<br/>HTTP API + JWT authorizer]
   APIGW --> L[Lambda<br/>api/src/lambda.ts]
   L --> DDB[(DynamoDB<br/>game progress)]
-  L -->|RDS Data API| PG[(Aurora PostgreSQL<br/>Serverless v2<br/>problem library)]
+  L -->|TLS + IAM token| PG[(Aurora PostgreSQL<br/>Serverless v2<br/>problem library)]
   L --> LC[leetcode.com<br/>problem lookup]
 ```
 
@@ -32,8 +32,9 @@ flowchart LR
   `sub` claim and never sees an unauthenticated request.
 - **No servers to keep warm.** Lambda, API Gateway, DynamoDB (on-demand) and
   Aurora (scales to zero when idle) all cost close to nothing when unused.
-  Aurora is reached through the RDS Data API (HTTPS + IAM), so the Lambdas run
-  outside the VPC. That means no NAT gateway, and no connection pool to manage.
+  Aurora runs in its express configuration: no VPC, reached over TLS with
+  short-lived IAM tokens instead of passwords
+  ([ADR 7](adr/0007-aurora-express-configuration-with-iam-sign-in.md)).
 - **Infrastructure as code.** Everything above is defined in `infra/` with the
   AWS CDK and deployed by GitHub Actions, which signs in through OIDC, so no AWS
   keys are stored anywhere. See [deploying.md](deploying.md).
@@ -135,9 +136,11 @@ test feeds it random input to keep that true.
   so users can't reach each other's data.
 - The web app uses the OAuth 2.0 authorization code flow with PKCE as a public
   client (no client secret in the browser).
-- The database has no internet access (isolated subnets). The Lambda's IAM
-  role may use the Data API on that one cluster, read its secret, and
-  read/write that one table, nothing else.
+- The database accepts only TLS connections signed in with IAM, and there
+  are no database passwords. The API's role may sign in only as its own
+  database user, which may only read and write the app's tables; only the
+  migration Lambda may sign in as the master. The API's role may also
+  read/write its one DynamoDB table, nothing else.
 - The API stage is rate-limited, and an optional AWS Budgets alert catches
   runaway cost.
 
@@ -146,12 +149,12 @@ test feeds it random input to keep that true.
 | What | How | Where |
 | --- | --- | --- |
 | Game rules | unit tests with a seeded RNG | `src/game/*.test.ts` |
-| Every document store | one shared contract suite, run against memory, files, Postgres (PGlite) and DynamoDB Local | `api/test/stores.test.ts` |
+| Every document store | one shared contract suite, run against memory, files, Postgres (PGlite, and a real server over the same connection code as the cloud) and DynamoDB Local | `api/test/stores.test.ts` |
 | API routes | requests against the Hono app with in-memory stores | `api/test/app.test.ts` |
 | Infrastructure | assertions on the synthesized CloudFormation | `infra/test/` |
 
 CI (`.github/workflows/ci.yml`) runs formatting, lint, type checks, all tests
-(with DynamoDB Local as a service container), the production build, and a full
+(with DynamoDB Local and PostgreSQL as service containers), the production build, and a full
 `cdk synth`, then deploys `main`.
 
 ## Decisions

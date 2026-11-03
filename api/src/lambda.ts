@@ -2,7 +2,7 @@
    The cloud API: one Lambda behind API Gateway. API Gateway has already
    checked the Cognito access token, so the user is the token's `sub`.
    Game progress lives in DynamoDB, the problem library in Aurora
-   PostgreSQL (through the RDS Data API, so no VPC or connection pool).
+   PostgreSQL (signing in with IAM tokens, see stores/postgres/connection.ts).
    Configuration comes from the environment (set by infra/lib/api.ts).
 ===================================================================== */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
@@ -11,8 +11,7 @@ import { handle } from 'hono/aws-lambda'
 import { createApp } from './app.ts'
 import { fetchLeetCodeProblem } from './leetcode.ts'
 import { createDynamoStore } from './stores/dynamo-store.ts'
-import { dataApiDb, whileResuming } from './stores/postgres/data-api.ts'
-import { createPostgresLibraryStore } from './stores/postgres/library-store.ts'
+import { iamAuth, postgresLibraryStore } from './stores/postgres/connection.ts'
 
 function env(name: string): string {
   const value = process.env[name]
@@ -34,14 +33,8 @@ const app = createApp({
       table: env('TABLE_NAME'),
       name: 'progress',
     }),
-    library: whileResuming(
-      createPostgresLibraryStore(
-        dataApiDb({
-          DB_NAME: env('DB_NAME'),
-          DB_CLUSTER_ARN: env('DB_CLUSTER_ARN'),
-          DB_SECRET_ARN: env('DB_SECRET_ARN'),
-        }),
-      ),
+    library: postgresLibraryStore(
+      iamAuth({ host: env('DB_HOST'), database: env('DB_NAME'), user: env('DB_USER') }),
     ),
   },
   // API Gateway already checked the token; its claims arrive with the event.
