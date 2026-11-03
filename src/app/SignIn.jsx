@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Pokeball } from '../components/icons'
 import { config } from '../config'
+import { DISCLAIMER } from './disclaimer'
 
 // The cloud app's sign-in screen, for visitors who aren't signed in: Google,
 // email (Cognito's sign-in page, which also creates accounts), or the demo.
@@ -79,6 +80,7 @@ export function SignIn({ auth, error, onSignIn }) {
             </a>
           ) : null}
         </div>
+        <p className="signin-disclaimer">{DISCLAIMER}</p>
       </div>
     </div>
   )

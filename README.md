@@ -124,6 +124,13 @@ npm run format       # Prettier
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the project layout and conventions.
 
+## Disclaimer
+
+PokéLeet is a free, non-commercial fan project, not affiliated with or endorsed
+by Nintendo, Creatures Inc., GAME FREAK inc., The Pokémon Company or LeetCode.
+Pokémon names and images belong to their owners.
+
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The license covers this project's code, not the Pokémon names
+and images.

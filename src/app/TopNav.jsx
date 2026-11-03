@@ -1,6 +1,9 @@
+import { useEffect, useRef, useState } from 'react'
 import { Coin, Pokeball, Shard } from '../components/icons'
 import { config } from '../config'
+import { DataModal } from '../features/dashboard/DataModal'
 import { useSaveStatus, useStore } from '../state/store'
+import { DISCLAIMER } from './disclaimer'
 
 // ---- top nav ----
 const TABS = [
@@ -83,8 +86,100 @@ function SaveStatus() {
   return <span className={'save-dot ' + (s.state === 'saved' ? s.mode : 'bad')} title={title} />
 }
 
+// The logo's dropdown: the account, its data and the legal pages.
+function BrandMenu({ session, onData }) {
+  const [open, setOpen] = useState(false)
+  const root = useRef(null)
+  const button = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    function clickAway(ev) {
+      if (!root.current.contains(ev.target)) setOpen(false)
+    }
+    function escape(ev) {
+      if (ev.key !== 'Escape') return
+      setOpen(false)
+      button.current.focus()
+    }
+    document.addEventListener('pointerdown', clickAway)
+    document.addEventListener('keydown', escape)
+    return () => {
+      document.removeEventListener('pointerdown', clickAway)
+      document.removeEventListener('keydown', escape)
+    }
+  }, [open])
+  // The legal pages describe the website, not a copy run on your own computer.
+  const hosted = session || config.demo
+  return (
+    <div ref={root}>
+      <button
+        ref={button}
+        className="brand-btn"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <Pokeball size={26} />
+        <span
+          className="pixel-font"
+          style={{
+            fontSize: 15,
+            lineHeight: 1,
+            color: '#5d4026',
+          }}
+        >
+          PokéLeet
+        </span>
+        <span className="brand-caret" />
+      </button>
+      {open ? (
+        <div className="brand-pop">
+          {session ? (
+            <div className="brand-account">
+              Signed in as <b>{session.email}</b>
+            </div>
+          ) : null}
+          <button
+            className="brand-item"
+            onClick={() => {
+              setOpen(false)
+              onData()
+            }}
+          >
+            {session ? 'Account & backups' : 'Backups'}
+          </button>
+          {/* a new tab, since leaving the app would end a running study session */}
+          {hosted
+            ? [
+                ['privacy.html', 'Privacy Policy'],
+                ['terms.html', 'Terms of Service'],
+              ].map(([href, label]) => (
+                <a
+                  key={href}
+                  className="brand-item"
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setOpen(false)}
+                >
+                  {label}
+                </a>
+              ))
+            : null}
+          {session ? (
+            <button className="brand-item" onClick={() => session.signOut()}>
+              Sign out
+            </button>
+          ) : null}
+          <p className="brand-note">{DISCLAIMER}</p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 // session: the signed-in account (cloud app only)
 export function TopNav({ page, setPage, onDemo, session }) {
+  const [dataOpen, setDataOpen] = useState(false)
   return (
     <div
       style={{
@@ -97,23 +192,14 @@ export function TopNav({ page, setPage, onDemo, session }) {
       <div
         className="wood-sign"
         style={{
+          position: 'relative',
           display: 'flex',
           alignItems: 'center',
           gap: 10,
           padding: '8px 16px',
         }}
       >
-        <Pokeball size={26} />
-        <div
-          className="pixel-font"
-          style={{
-            fontSize: 15,
-            lineHeight: 1,
-            color: '#5d4026',
-          }}
-        >
-          PokéLeet
-        </div>
+        <BrandMenu session={session} onData={() => setDataOpen(true)} />
         {config.demo ? (
           <button className="demo-badge" title="Online demo — click for details" onClick={onDemo}>
             Demo
@@ -152,17 +238,9 @@ export function TopNav({ page, setPage, onDemo, session }) {
         }}
       >
         <CurrencyCluster />
-        {session ? (
-          <button
-            className="demo-badge"
-            style={{ marginLeft: 8 }}
-            title={'Signed in as ' + session.email}
-            onClick={() => session.signOut()}
-          >
-            Sign out
-          </button>
-        ) : null}
       </div>
+      {/* out here so its veil covers the screen, not just the positioned sign */}
+      {dataOpen ? <DataModal onClose={() => setDataOpen(false)} /> : null}
     </div>
   )
 }
