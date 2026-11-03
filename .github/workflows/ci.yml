@@ -88,5 +88,5 @@ jobs:
           npx cdk deploy "Pokeleet-${{ vars.STAGE || 'dev' }}"
           --require-approval never
           -c stage=${{ vars.STAGE || 'dev' }}
-          -c budgetEmail=${{ vars.BUDGET_EMAIL }}
+          -c budgetEmail=${{ secrets.BUDGET_EMAIL }}
         working-directory: infra

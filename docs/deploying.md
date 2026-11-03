@@ -54,7 +54,11 @@ AWS with GitHub's OIDC token. No AWS keys are stored in GitHub.
    - `AWS_DEPLOY_ROLE_ARN`: the role ARN from step 1
    - `AWS_REGION`: e.g. `us-east-1`
    - `STAGE` (optional): `dev` (default) or `prod`
-   - `BUDGET_EMAIL` (optional): where cost alerts go
+
+   And under **Secrets**:
+   - `BUDGET_EMAIL`: where cost alerts go. It's a secret so the address is
+     masked in the (public) workflow logs. Without it, a deploy from GitHub
+     removes the budget alert.
 
 Until `AWS_DEPLOY_ROLE_ARN` is set, the deploy job is skipped, so forks run
 the checks without deploying.
