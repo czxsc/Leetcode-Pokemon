@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { config } from '../config'
 import { Dashboard } from '../features/dashboard/Dashboard'
 import { Focus } from '../features/focus/Focus'
@@ -14,6 +14,7 @@ import { useStore } from '../state/store'
 import { demoNoticeSeen } from './demo-notice'
 import { DemoNotice } from './DemoNotice'
 import { SaveBanner } from './SaveBanner'
+import { screenSize } from './screen-size'
 import { TopNav } from './TopNav'
 
 const PAGES = {
@@ -27,13 +28,16 @@ const PAGES = {
   focus: Focus,
 }
 
-// The app is laid out on a fixed 1280x800 screen, scaled to fit the window.
+// Sizes the app's screen for the window (screen-size.js decides how).
 function fit() {
-  const wrap = document.getElementById('screen-wrap')
   const screen = document.getElementById('screen')
-  if (!wrap || !screen) return
-  const s = Math.min(wrap.clientWidth / 1280, wrap.clientHeight / 800)
-  screen.style.transform = `scale(${s})`
+  if (!screen) return
+  const { width, height, scale, left, top } = screenSize(window.innerWidth, window.innerHeight)
+  screen.style.left = left + 'px'
+  screen.style.top = top + 'px'
+  screen.style.width = width + 'px'
+  screen.style.height = height + 'px'
+  screen.style.transform = `scale(${scale})`
 }
 
 // session: the signed-in account (cloud app only)
@@ -41,34 +45,28 @@ export function App({ session }) {
   const [page, setPage] = useState('dashboard')
   const [demoNotice, setDemoNotice] = useState(() => config.demo && !demoNoticeSeen())
   const onboarded = useStore((s) => s.onboarded)
+  const frame = useRef(null)
   useEffect(() => {
     focus.start()
+    return () => focus.stop()
+  }, [])
+  // before the first paint, so the app never shows at the wrong size
+  useLayoutEffect(() => {
     window.addEventListener('resize', fit)
     fit()
-    const fitSoon = setTimeout(fit, 60)
-    const fitLater = setTimeout(fit, 300)
-    return () => {
-      window.removeEventListener('resize', fit)
-      clearTimeout(fitSoon)
-      clearTimeout(fitLater)
-      focus.stop()
-    }
+    return () => window.removeEventListener('resize', fit)
   }, [])
+  // on a narrow screen the whole page scrolls, so a new tab starts at its top
+  useLayoutEffect(() => {
+    frame.current.scrollTop = 0
+  }, [page])
   const Page = PAGES[page]
   return (
     <div id="screen-wrap">
       <div id="screen" data-screen-label="App">
         <div className="scene-bg"></div>
         <div id="app" style={{ position: 'absolute', inset: 0 }}>
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              padding: 16,
-            }}
-          >
+          <div ref={frame} className="app-frame">
             {/* first run: name, photo and starting team before anything else */}
             {onboarded ? (
               <TopNav
@@ -78,11 +76,7 @@ export function App({ session }) {
                 session={session}
               />
             ) : null}
-            <div
-              key={page}
-              className={onboarded ? 'fade-in' : ''}
-              style={{ flex: 1, minHeight: 0 }}
-            >
+            <div key={page} className={'app-page' + (onboarded ? ' fade-in' : '')}>
               {onboarded ? <Page /> : <Onboarding />}
             </div>
             {demoNotice ? <DemoNotice onClose={() => setDemoNotice(false)} /> : null}

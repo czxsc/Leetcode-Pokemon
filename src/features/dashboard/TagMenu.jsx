@@ -1,7 +1,7 @@
 import * as Catalog from '../../../shared/catalog'
 import * as D from '../../game/derived'
 import { store, useStore } from '../../state/store'
-import { ALL, colStyle, ellipsis, scrollBody } from './shared'
+import { ALL, ellipsis, scrollBody } from './shared'
 
 // ---------- LEFT: tag menu (new tags are added from the problem editor) ----------
 function TagItem({ item, active, onSelect, onDelete }) {
@@ -103,7 +103,8 @@ function menuItem(id, name, probs, extra) {
   }
 }
 
-export function TagMenu({ by, setBy, sel, setSel }) {
+// onPicked: a tag was chosen, so the narrow layout can go show its problems
+export function TagMenu({ by, setBy, sel, setSel, onPicked }) {
   const st = useStore() // re-render when tags/problems change
   const stats = D.tagStats(st)
   const all = menuItem(ALL, 'All Problems', st.problems)
@@ -117,6 +118,10 @@ export function TagMenu({ by, setBy, sel, setSel }) {
       },
     ),
   )
+  const pick = (id) => {
+    setSel(id)
+    onPicked()
+  }
   const pickBy = (next) => {
     if (next !== by) {
       setBy(next)
@@ -132,7 +137,7 @@ export function TagMenu({ by, setBy, sel, setSel }) {
     store.removeTag(tag.id)
   }
   return (
-    <div className="panel" style={colStyle}>
+    <div className="panel dash-col dash-tags">
       <div className="panel-title">
         <span className="dot" />
         {by === 'tag' ? 'Tags' : 'Difficulty'}
@@ -158,7 +163,7 @@ export function TagMenu({ by, setBy, sel, setSel }) {
         ))}
       </div>
       <div style={scrollBody}>
-        <TagItem item={all} active={sel === ALL} onSelect={() => setSel(ALL)} />
+        <TagItem item={all} active={sel === ALL} onSelect={() => pick(ALL)} />
         <div
           style={{
             height: 1,
@@ -172,12 +177,12 @@ export function TagMenu({ by, setBy, sel, setSel }) {
                 key={c.id}
                 item={c}
                 active={sel === c.id}
-                onSelect={() => setSel(c.id)}
+                onSelect={() => pick(c.id)}
                 onDelete={c.custom ? () => removeTag(c) : null}
               />
             ))
           : diffs.map((d) => (
-              <TagItem key={d.id} item={d} active={sel === d.id} onSelect={() => setSel(d.id)} />
+              <TagItem key={d.id} item={d} active={sel === d.id} onSelect={() => pick(d.id)} />
             ))}
       </div>
     </div>

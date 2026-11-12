@@ -66,13 +66,7 @@ export function GenModal({ ball, current, onClose, onPick }) {
             </div>
           </div>
         </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4,1fr)',
-            gap: 9,
-          }}
-        >
+        <div className="gen-grid">
           {PM.GENERATIONS.map((g) => (
             <button
               key={g.gen}

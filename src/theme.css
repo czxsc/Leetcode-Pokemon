@@ -43,6 +43,8 @@
 
 *{ box-sizing:border-box; }
 html,body{ margin:0; height:100%; }
+/* no text inflating when a phone turns sideways */
+html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 body{
   font-family:'Pixelify Sans', monospace;
   color:var(--ink);
@@ -63,18 +65,20 @@ button{ font-family:inherit; cursor:pointer; }
 *::-webkit-scrollbar-thumb{ background:var(--wood); border:2px solid var(--wood-line); border-radius:6px; }
 
 /* =========================================================
-   App scaffold — fixed 1280x800 letterboxed screen
+   App scaffold — the app's screen, a window inside a striped blue
+   backdrop; where it sits, its size and its scale come from
+   app/screen-size.js
 ========================================================= */
 #screen-wrap{
-  position:fixed; inset:0;
-  display:flex; align-items:center; justify-content:center;
+  position:fixed; inset:0; overflow:hidden;
   background:
     repeating-linear-gradient(0deg, #7fb0aa 0 2px, #76a8a2 2px 4px);
 }
 #screen{
-  width:1280px; height:800px;
-  position:relative; transform-origin:center center;
+  position:absolute; left:0; top:0; transform-origin:0 0;
   overflow:hidden; background:var(--sage);
+  border-radius:12px; box-shadow:0 8px 28px rgba(38,72,68,.28);
+  container:screen / size;
 }
 
 /* cozy meadow backdrop */
@@ -132,7 +136,7 @@ button{ font-family:inherit; cursor:pointer; }
    NAV — wood tray with pastel tabs
 ========================================================= */
 .nav{
-  display:flex; align-items:center; gap:5px;
+  flex:1; display:flex; align-items:center; gap:5px;
   background:linear-gradient(180deg,var(--wood) ,var(--wood-dark));
   border:3px solid var(--wood-line); border-radius:14px;
   padding:7px; box-shadow: inset 0 2px 0 rgba(255,255,255,.22), var(--shadow);
@@ -294,7 +298,7 @@ button{ font-family:inherit; cursor:pointer; }
 .save-dot.local, .save-dot.cloud{ background:var(--sage-deep); }
 .save-dot.browser{ background:var(--sky); }
 .save-dot.bad{ background:var(--hard); animation:livep 1.1s ease-in-out infinite; }
-.save-banner{ position:absolute; left:50%; bottom:22px; transform:translateX(-50%); z-index:80; max-width:760px;
+.save-banner{ position:fixed; left:12px; right:12px; bottom:22px; width:fit-content; margin:0 auto; z-index:80; max-width:760px;
   background:#f6ddd8; color:#8a3b33; border:3px solid var(--hard); border-radius:10px; padding:9px 14px;
   font-size:14px; line-height:1.4; box-shadow:var(--shadow); }
 .data-path{ font-family:'VT323',monospace; font-size:17px; color:var(--ink); background:var(--cream); border:1px solid var(--card-line);
@@ -458,6 +462,7 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
   46%{ width:168px; height:168px; border-radius:34px; top:calc(50% - 32px); animation-timing-function:cubic-bezier(.75,0,.2,1); }
   100%{ width:calc(100% - 24px); height:calc(100% - 66px); border-radius:26px; top:calc(50% + 21px); opacity:1; }
 }
+.iris.settled .iris-win{ overflow:auto; }
 .iris-win{ width:calc(100% - 24px); height:calc(100% - 24px); box-sizing:border-box; overflow:hidden;
   background:var(--card-2); border:3px solid #4a3e30; border-radius:16px;
   display:flex; align-items:center; justify-content:center; }
@@ -476,7 +481,8 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
   66%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
   84%,100%{ transform:translate(-50%,-50%) scale(1.6); opacity:0; }
 }
-.iris-content{ display:flex; flex-direction:column; align-items:center; gap:18px; }
+/* auto margins, so a tall result still scrolls to its top */
+.iris-content{ display:flex; flex-direction:column; align-items:center; gap:18px; margin:auto; }
 .result-pop{ animation:resultpop .45s cubic-bezier(.2,1.5,.5,1) backwards; }
 @keyframes resultpop{ 0%{ transform:translateY(16px) scale(.6); opacity:0; } 100%{ transform:none; opacity:1; } }
 
@@ -510,7 +516,7 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
 /* study sessions */
 .meadow-field.paused .wanderer, .meadow-field.paused .boss-wrap{ filter:saturate(.45) brightness(1.04); }
 .study-card{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:370px; z-index:10; }
-.paused-notice{ position:absolute; left:50%; top:58px; transform:translateX(-50%); z-index:10; padding:12px 18px; text-align:center; white-space:nowrap; }
+.paused-notice{ position:absolute; left:50%; top:58px; transform:translateX(-50%); z-index:10; padding:12px 18px; text-align:center; width:max-content; max-width:calc(100% - 24px); }
 .study-clock{ font-family:'Silkscreen',monospace; color:var(--wood-dark); font-variant-numeric:tabular-nums; line-height:1.1; }
 .study-target{ font-family:'Pixelify Sans',monospace; font-size:15px; font-weight:600; color:var(--lav-deep); background:transparent;
   border:none; padding:0; text-align:left; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; }
@@ -574,8 +580,9 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
 .float-dmg.crit{ color:#ffe08a; font-size:19px; text-shadow:0 1px 2px rgba(0,0,0,.6), 0 0 7px #d8902a; }
 @keyframes dmgfloat{ 0%{ opacity:0; transform:translate(-50%,-25%) scale(.7);} 16%{ opacity:1;} 100%{ opacity:0; transform:translate(-50%,-165%) scale(1);} }
 
-/* modal */
-.modal-veil{ position:absolute; inset:0; background:rgba(60,45,30,.45); display:flex; align-items:center; justify-content:center; z-index:50; }
+/* modal: fixed so it covers the screen wherever it is opened from, and however
+   far the page has scrolled (the screen's transform makes it the fixed parent) */
+.modal-veil{ position:fixed; inset:0; background:rgba(60,45,30,.45); display:flex; align-items:center; justify-content:center; z-index:50; }
 .modal{ width:520px; max-width:92%; max-height:86%; overflow:auto; }
 .field{ display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
 .field label{ font-family:'Silkscreen'; font-size:9px; color:var(--ink-faint); text-transform:uppercase; }
@@ -591,7 +598,8 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
 /* =====================================================================
    ONBOARDING (first run) + progression chapter badges
 ===================================================================== */
-.onb-wrap{ height:100%; display:flex; align-items:center; justify-content:center; }
+/* "safe" keeps the top reachable by scrolling on a short window */
+.onb-wrap{ height:100%; display:flex; align-items:safe center; justify-content:center; overflow-y:auto; }
 .onb-panel{ width:1010px; padding:24px 28px 22px; }
 .onb-head{ display:flex; align-items:center; gap:12px; padding-bottom:14px; border-bottom:2px solid var(--card-line); }
 .onb-steps{ display:flex; gap:14px; }
@@ -701,7 +709,7 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
 
 /* =========================================================
    SIGN-IN — the cloud app's screen when signed out (app/SignIn.jsx).
-   A normal page that fits any width, unlike the fixed 1280x800 app screen.
+   A normal page that fits any width.
 ========================================================= */
 .signin{ position:fixed; inset:0; overflow-y:auto; display:flex; align-items:center; justify-content:center; padding:24px 16px;
   background:
@@ -779,3 +787,216 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
 .loading-score{ display:inline-flex; align-items:center; gap:5px; font-family:'Silkscreen'; font-size:11px; color:var(--ink); white-space:nowrap; }
 .loading-best{ margin-left:6px; color:var(--ink-faint); }
 @media (prefers-reduced-motion: reduce){ .loading-ball, .loading-cloud{ animation:none; } }
+
+/* =========================================================
+   PAGE LAYOUTS — the desktop layout of each page. The narrow
+   layouts below change these, which inline styles couldn't allow.
+========================================================= */
+.app-frame{ position:absolute; inset:0; display:flex; flex-direction:column; padding:16px; }
+.app-page{ flex:1; min-height:0; }
+.topnav{ display:flex; align-items:stretch; gap:12px; margin-bottom:14px; }
+.topnav-brand{ position:relative; display:flex; align-items:center; gap:10px; padding:8px 16px; }
+.topnav-cur{ display:flex; align-items:center; padding:8px 12px; }
+/* a main panel with a side panel */
+.split{ display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:14px; height:100%; min-height:0; }
+.split.side-360{ grid-template-columns:minmax(0,1fr) 360px; }
+.dashboard{ display:grid; grid-template-columns:258px minmax(0,1fr) 318px; gap:14px; height:100%; min-height:0; }
+.dash-panes{ display:none; }
+.dash-col{ display:flex; flex-direction:column; height:100%; min-height:0; }
+.editor-row{ display:flex; gap:12px; }
+.plist-head{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+.plist-title{ flex:1; min-width:0; }
+.brand-word{ font-size:15px; line-height:1; color:#5d4026; }
+/* a panel title sharing its row with controls */
+.head-title{ margin:0; flex:1; }
+.quests-head{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.quests-tabs{ width:280px; flex:none; }
+.team-head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.team-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+.team-slots{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+.dex-head{ display:flex; align-items:center; gap:16px; padding:12px 18px; flex:none; }
+.dex-summary{ flex:1; }
+.dex-stats{ display:flex; gap:8px; margin-top:8px; }
+.dex-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px; }
+.shop-panel{ height:100%; display:flex; flex-direction:column; gap:24px; overflow-y:auto; padding:26px 30px; }
+.shop-grid{ flex:1; display:grid; grid-template-columns:repeat(auto-fill, minmax(min(340px, 100%), 1fr)); grid-auto-rows:minmax(132px, 1fr); gap:18px; }
+.shop-item{ padding:22px; display:flex; align-items:center; gap:16px; }
+.recall-body{ padding:24px 32px; }
+.reveal-grid{ display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; }
+.gacha-result{ padding:18px 24px; }
+.reveal-grid .gacha-result{ padding:14px 12px; }
+.feed-foot{ display:flex; align-items:center; gap:12px; margin-top:12px; padding-top:12px; border-top:2px dashed var(--card-line); }
+.onb-trainer{ display:flex; gap:24px; align-items:center; margin:26px auto 0; width:520px; max-width:100%; }
+.onb-team{ display:flex; gap:22px; align-items:center; justify-content:center; margin-top:22px; }
+.onb-team-rest{ display:grid; grid-template-columns:repeat(3, 120px); gap:12px; }
+.gen-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:9px; }
+.target-grid{ flex:1 1 360px; min-height:0; overflow-y:auto; display:grid; grid-template-columns:repeat(6, 1fr); gap:8px; padding-right:4px; align-content:start; }
+.toast{ position:fixed; left:12px; right:12px; bottom:34px; z-index:60; width:fit-content; margin:0 auto; padding:10px 18px; text-align:center;
+  background:var(--sage-deep); color:#fff; font-family:'Silkscreen'; font-size:11px; border-radius:10px; border:2px solid #fff; box-shadow:0 4px 0 rgba(124,90,61,.25); }
+
+/* =========================================================
+   NARROW LAYOUTS — windows too narrow for the desktop layout
+   (app/screen-size.js). The screen is real pixels here, and the
+   whole page scrolls instead of each panel.
+   These are container queries because #screen's own width is what
+   matters: a media query would see the window, not the scaled screen.
+========================================================= */
+@container screen (max-width:1023px){
+  /* no top padding on the scroller: browsers differ on whether a sticky offset counts it */
+  .app-frame{ overflow-y:auto; padding:0 12px 12px; }
+  /* at least the window's height, and more when the page needs it */
+  .app-page{ flex:1 0 auto; }
+  .app-page:first-child{ margin-top:12px; }
+
+  /* the logo and currency row (48px, plus the 8px gap) scrolls away; the tabs stay */
+  .topnav{ flex-wrap:wrap; gap:8px; margin:12px 0; position:sticky; top:-56px; z-index:30; }
+  .topnav-brand, .topnav-cur{ height:48px; }
+  .topnav-brand{ flex:1; padding:6px 12px; }
+  .topnav-cur{ padding:6px 8px; }
+  .nav{ order:3; flex:1 1 100%; flex-wrap:wrap; }
+  .nav-tab{ flex:1 1 auto; justify-content:center; }
+
+  .split, .split.side-360{ grid-template-columns:minmax(0, 1fr); }
+  /* the team goes above a collection that can be very long */
+  .team-side{ order:-1; }
+  .team-slots{ grid-template-columns:repeat(6, minmax(0, 1fr)); }
+
+  /* tags and problems side by side; the trainer behind a switcher */
+  .dashboard{ grid-template-columns:230px minmax(0, 1fr); grid-template-rows:auto 1fr; }
+  .dash-panes{ display:flex; grid-column:1 / -1; }
+  .dash-pane-tags{ display:none; }
+  .dashboard[data-pane="trainer"] > :is(.dash-tags, .dash-list){ display:none; }
+  .dashboard:not([data-pane="trainer"]) > .dash-trainer{ display:none; }
+  .dash-trainer{ grid-column:1 / -1; justify-self:center; width:100%; max-width:560px; }
+
+  .summon-stage{ min-height:420px; }
+  /* the results take the room they need, and the page scrolls to them */
+  .iris.settled{ position:relative; left:auto; top:auto; transform:none; width:100%; height:auto; margin-top:34px; padding:12px; }
+  .iris.settled .iris-win{ width:100%; height:auto; padding:16px 8px; overflow:visible; }
+
+  /* the field grows with whatever card is on it */
+  .focus-field{ display:flex; }
+  .focus-field .meadow-field{ position:relative; inset:auto; flex:1; min-width:0; min-height:400px; padding:12px; display:flex; align-items:center; justify-content:center; }
+  .study-card{ position:relative; left:auto; top:auto; transform:none; width:100%; max-width:370px; }
+
+  .onb-panel{ width:100%; padding:18px 18px 16px; }
+  .onb-wrap{ align-items:flex-start; overflow:visible; }
+}
+
+@container screen (max-width:860px){
+  /* still one row of tabs, just tighter */
+  .nav-tab{ padding:8px 5px; gap:5px; }
+
+  /* one pane at a time */
+  .dashboard{ grid-template-columns:minmax(0, 1fr); }
+  .dash-pane-tags{ display:block; }
+  .dashboard[data-pane="problems"] > .dash-tags{ display:none; }
+  .dashboard[data-pane="tags"] > .dash-list{ display:none; }
+
+  .recall-split{ grid-template-columns:minmax(0, 1fr); }
+  .recall-decks{ grid-template-columns:repeat(2, 1fr); }
+  .recall-diffs{ flex-direction:column; align-items:stretch; }
+  .recall-twist-actions{ flex-wrap:wrap; }
+  /* flex, so a short last row stays centred */
+  .reveal-grid{ display:flex; flex-wrap:wrap; justify-content:center; }
+  .reveal-grid .gacha-result{ width:124px; }
+  .onb-grid{ grid-template-columns:repeat(4, 1fr); }
+  .onb-team{ flex-direction:column; }
+}
+
+/* all eight tabs on two rows */
+@container screen (max-width:680px){
+  .nav{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:3px; padding:5px; }
+  .nav-tab{ font-size:9px; padding:8px 2px; }
+  .nav-tab .tdot{ display:none; }
+}
+
+@container screen (max-width:600px){
+  .app-frame{ padding:0 8px 8px; }
+  .app-page:first-child{ margin-top:8px; }
+  .topnav{ margin:8px 0 12px; }
+  .panel{ padding:12px; }
+
+  .topnav-brand{ padding:6px 10px; gap:6px; }
+  .brand-btn{ gap:6px; }
+  .brand-word{ font-size:13px; }
+  .cur-badge{ font-size:11px; gap:4px; padding:3px 8px 3px 5px; }
+
+  .plist-head{ flex-wrap:wrap; }
+  .plist-title{ flex:1 1 100%; }
+  .plist-head .search-input{ flex:1 1 90px; width:auto; min-width:0; }
+
+  /* a row of problem is two lines: its name, then its tags and difficulty */
+  .prow-head{ flex-wrap:wrap; gap:6px; }
+  .prow-head .tag-chip{ max-width:84px; }
+  .prow-check{ order:-3; }
+  .prow-head .nm{ order:-2; flex:1 1 calc(100% - 48px); white-space:normal; }
+  .prow-arrow{ order:-1; }
+  .prow-head .pill{ margin-left:auto; }
+  .code-bar, .code-meta{ flex-wrap:wrap; }
+  .editor-row{ flex-direction:column; gap:0; }
+  .editor-row .seg-btn{ flex:1; }
+  .feed-foot{ flex-direction:column; align-items:stretch; }
+  /* the long hint has to wrap, or it runs off the box */
+  .field textarea.code-input::placeholder{ white-space:pre-wrap; }
+
+  .quests-head, .team-head{ flex-wrap:wrap; }
+  .head-title{ flex:1 1 100%; }
+  .quests-tabs{ width:100%; }
+
+  .team-slots{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  .team-grid{ grid-template-columns:repeat(auto-fill, minmax(100px, 1fr)); gap:8px; }
+  .dex-head{ flex-wrap:wrap; gap:10px; }
+  .dex-summary{ flex:1 1 100%; }
+  .dex-stats{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .dex-grid{ grid-template-columns:repeat(auto-fill, minmax(72px, 1fr)); gap:6px; }
+  .shop-panel{ padding:14px 12px; gap:16px; }
+  .shop-grid{ gap:10px; grid-auto-rows:auto; }
+  .shop-item{ padding:12px; gap:10px; flex-wrap:wrap; }
+  .recall-body{ padding:14px 12px; }
+  .recall-twist-hint{ flex:1 1 100%; }
+  .recall-decks{ grid-template-columns:minmax(0, 1fr); }
+  .gen-grid{ grid-template-columns:repeat(2, 1fr); }
+  .target-grid{ grid-template-columns:repeat(auto-fill, minmax(72px, 1fr)); }
+  .iris.settled{ padding:8px; }
+  .iris.settled .iris-win{ padding:12px 6px; }
+  /* zoom shrinks the sprite and its text together, to fit three across */
+  .reveal-grid{ gap:8px; }
+  .reveal-grid .gacha-result{ zoom:.72; }
+  .onb-grid{ grid-template-columns:repeat(3, 1fr); }
+  .onb-steps{ display:none; }
+  .onb-trainer{ flex-direction:column; align-items:stretch; }
+  .onb-trainer > :first-child{ align-self:center; }
+  /* no room for the weather beside the running clock; the side panel still says what it does */
+  .focus-signs:has(~ .focus-clock) .focus-weather{ display:none; }
+  .onb-team-rest{ grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); width:100%; }
+  .onb-actions{ flex-wrap:wrap; gap:8px; }
+}
+
+/* the logo and currencies must share one row: the tabs' sticky offset counts on it */
+@container screen (max-width:480px){
+  .topnav-brand:has(.demo-badge) .brand-word{ display:none; }
+}
+@container screen (max-width:380px){
+  .brand-word{ display:none; }
+  .topnav-brand{ padding:6px 8px; }
+  .topnav-cur{ padding:6px; }
+  .cur-badge{ font-size:10px; padding:3px 6px 3px 4px; }
+}
+
+/* a tall window: rows stop stretching to fill it */
+@container screen (min-height:1000px){
+  .shop-grid{ flex:none; grid-auto-rows:minmax(132px, 200px); }
+}
+
+/* too short to keep the tabs on screen while scrolling */
+@container screen (max-height:560px){
+  .topnav{ position:static; }
+}
+
+/* touch screens have no hover to reveal these */
+@media (hover:none){
+  .avatar-reset, .trainer-name .pencil{ opacity:1; }
+  /* iOS zooms the page into any smaller input */
+  .field input, .field select, .search-input, .search-box .search-input{ font-size:16px; }
+}

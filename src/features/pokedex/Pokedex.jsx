@@ -227,21 +227,8 @@ export function Pokedex() {
       }}
     >
       {/* header */}
-      <div
-        className="panel"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          padding: '12px 18px',
-          flex: 'none',
-        }}
-      >
-        <div
-          style={{
-            flex: 1,
-          }}
-        >
+      <div className="panel dex-head">
+        <div className="dex-summary">
           <div
             className="panel-title"
             style={{
@@ -251,13 +238,7 @@ export function Pokedex() {
             <span className="dot" />
             Pokédex
           </div>
-          <div
-            style={{
-              display: 'flex',
-              gap: 8,
-              marginTop: 8,
-            }}
-          >
+          <div className="dex-stats">
             <StatChip
               icon="📘"
               label="CAUGHT"
@@ -426,13 +407,7 @@ export function Pokedex() {
                 : 'None in this generation.'}
             </div>
           ) : (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(9,1fr)',
-                gap: 8,
-              }}
-            >
+            <div className="dex-grid">
               {list.map((s) => (
                 <DexCell
                   key={s.id}

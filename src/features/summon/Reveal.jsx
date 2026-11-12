@@ -134,13 +134,7 @@ export function Iris({ settled, results, onContinue }) {
             {results.length === 1 ? (
               <ResultCard r={results[0]} big={true} i={0} />
             ) : (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(5,1fr)',
-                  gap: 12,
-                }}
-              >
+              <div className="reveal-grid">
                 {results.map((r, i) => (
                   <ResultCard key={i} r={r} i={i} />
                 ))}
@@ -238,7 +232,6 @@ function ResultCard({ r, big, i = 0 }) {
         background: 'var(--card-2)',
         border: '3px solid ' + rar.color,
         borderRadius: 14,
-        padding: big ? '18px 24px' : '14px 12px',
         textAlign: 'center',
         position: 'relative',
         boxShadow: '0 0 0 3px rgba(255,255,255,.5), 0 0 18px ' + rar.glow,

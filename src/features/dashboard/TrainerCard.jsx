@@ -11,7 +11,7 @@ import { shrinkPhoto } from '../../lib/photo'
 import { store, useSaveStatus, useStore } from '../../state/store'
 import { MonDetailModal } from '../team/MonDetailModal'
 import { DataModal } from './DataModal'
-import { colStyle, ellipsis, scrollBody } from './shared'
+import { ellipsis, scrollBody } from './shared'
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -309,13 +309,7 @@ export function TrainerCard() {
     </div>
   )
   return (
-    <div
-      className="panel"
-      style={{
-        ...colStyle,
-        gap: 0,
-      }}
-    >
+    <div className="panel dash-col dash-trainer">
       {detail ? <MonDetailModal iid={detail} onClose={() => setDetail(null)} /> : null}
       {dataOpen ? <DataModal onClose={() => setDataOpen(false)} /> : null}
       <div style={scrollBody}>

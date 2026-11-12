@@ -189,12 +189,7 @@ export function ProblemEditor({ problem, defaultTag, onClose, onSaved }) {
           <span className="dot" />
           {problem ? 'Edit Problem' : 'New Problem'}
         </div>
-        <div
-          style={{
-            display: 'flex',
-            gap: 12,
-          }}
-        >
+        <div className="editor-row">
           <div
             className="field"
             style={{

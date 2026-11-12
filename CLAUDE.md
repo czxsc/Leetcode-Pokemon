@@ -49,4 +49,5 @@ Read `docs/architecture.md` first. The rules that matter most:
 ## Verifying UI changes
 
 There are no component tests. After UI changes, run the app against a
-scratch data folder and click through every tab in a browser.
+scratch data folder and click through every tab in a browser, at desktop size
+and at a phone width (the two layouts are described in `docs/architecture.md`).

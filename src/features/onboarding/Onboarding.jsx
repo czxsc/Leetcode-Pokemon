@@ -48,15 +48,7 @@ function TrainerStep({ name, setName, avatar, setAvatar, onNext }) {
   return (
     <div className="onb-body">
       <div className="onb-lead">First things first — what should we call you?</div>
-      <div
-        style={{
-          display: 'flex',
-          gap: 24,
-          alignItems: 'center',
-          margin: '26px auto 0',
-          width: 520,
-        }}
-      >
+      <div className="onb-trainer">
         <div
           style={{
             textAlign: 'center',
@@ -260,25 +252,9 @@ function TeamStep({ team, name, onBack, onDone }) {
         <b>{leadSp.name}</b>
         {' brought along five friends.'}
       </div>
-      <div
-        style={{
-          display: 'flex',
-          gap: 22,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginTop: 22,
-        }}
-      >
+      <div className="onb-team">
         {card(lead, true)}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 120px)',
-            gap: 12,
-          }}
-        >
-          {rest.map((id) => card(id, false))}
-        </div>
+        <div className="onb-team-rest">{rest.map((id) => card(id, false))}</div>
       </div>
       <div
         style={{

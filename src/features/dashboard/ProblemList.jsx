@@ -7,7 +7,7 @@ import { isSolved } from '../../game/derived'
 import { SHARD_BY_DIFF } from '../../game/rules'
 import { store, useStore } from '../../state/store'
 import { ProblemEditor } from './ProblemEditor'
-import { colStyle, ellipsis, scrollBody } from './shared'
+import { ellipsis, scrollBody } from './shared'
 
 // ---------- CENTER: problem list ----------
 function ProblemRow({ p, open, onToggle, onEdit, hideTag, tagById }) {
@@ -39,6 +39,7 @@ function ProblemRow({ p, open, onToggle, onEdit, hideTag, tagById }) {
         onClick={onToggle}
       >
         <span
+          className="prow-check"
           style={{
             fontFamily: "'Silkscreen'",
             fontSize: 11,
@@ -72,6 +73,7 @@ function ProblemRow({ p, open, onToggle, onEdit, hideTag, tagById }) {
         ) : null}
         <span className={'pill ' + p.difficulty.toLowerCase()}>{p.difficulty}</span>
         <span
+          className="prow-arrow"
           style={{
             fontFamily: "'Silkscreen'",
             fontSize: 12,
@@ -270,7 +272,7 @@ export function ProblemList({ by, sel }) {
   const ready = st.problems.filter((p) => isSolved(p) && !p.claimed)
   const readyShards = ready.reduce((n, p) => n + (SHARD_BY_DIFF[p.difficulty] || 0), 0)
   return (
-    <div className="panel card" style={colStyle}>
+    <div className="panel card dash-col dash-list">
       {modal ? (
         <ProblemEditor
           problem={modal.problem}
@@ -282,20 +284,8 @@ export function ProblemList({ by, sel }) {
           }}
         />
       ) : null}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          marginBottom: 12,
-        }}
-      >
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-          }}
-        >
+      <div className="plist-head">
+        <div className="plist-title">
           <div
             className="pixel-font"
             style={{

@@ -9,13 +9,7 @@ import { listStyle } from './shared'
 
 function TabBar({ tab, setTab, readyCount }) {
   return (
-    <div
-      className="seg seg-mini"
-      style={{
-        width: 280,
-        flex: 'none',
-      }}
-    >
+    <div className="seg seg-mini quests-tabs">
       {[
         ['daily', 'Daily'],
         ['progress', readyCount ? `Progression · ${readyCount}` : 'Progression'],
@@ -45,14 +39,7 @@ export function Quests() {
   const ch = chapters[sel]
   const readyCount = chapters.reduce((n, c) => n + c.ready.length, 0)
   return (
-    <div
-      style={{
-        height: '100%',
-        display: 'grid',
-        gridTemplateColumns: '1fr 320px',
-        gap: 14,
-      }}
-    >
+    <div className="split">
       <div
         className="panel"
         style={{
@@ -61,21 +48,8 @@ export function Quests() {
           minHeight: 0,
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            marginBottom: 12,
-          }}
-        >
-          <div
-            className="panel-title"
-            style={{
-              margin: 0,
-              flex: 1,
-            }}
-          >
+        <div className="quests-head">
+          <div className="panel-title head-title">
             <span className="dot" />
             {tab === 'daily' ? 'Daily Quests' : 'Chapter ' + (ch.index + 1) + ' · ' + ch.title}
           </div>

@@ -242,16 +242,7 @@ export function FeedModal({ item, onClose, onDone }) {
             </div>
           ) : null}
         </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            marginTop: 12,
-            paddingTop: 12,
-            borderTop: '2px dashed var(--card-line)',
-          }}
-        >
+        <div className="feed-foot">
           {preview}
           <div
             style={{

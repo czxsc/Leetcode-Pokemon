@@ -82,14 +82,7 @@ export function Summon() {
   const legendaryTarget = st.guaranteedLegendary ? PM.byId(st.guaranteedLegendary) : null
   const epicTarget = st.guaranteedEpic ? PM.byId(st.guaranteedEpic) : null
   return (
-    <div
-      style={{
-        height: '100%',
-        display: 'grid',
-        gridTemplateColumns: '1fr 360px',
-        gap: 14,
-      }}
-    >
+    <div className="split side-360">
       {picker ? <TargetModal tier={picker} onClose={() => setPicker(null)} /> : null}
       {info ? <InfoModal onClose={() => setInfo(false)} /> : null}
       {genPicker ? (
@@ -105,7 +98,7 @@ export function Summon() {
       ) : null}
       {/* LEFT stage */}
       <div
-        className="panel cream"
+        className="panel cream summon-stage"
         style={{
           display: 'flex',
           flexDirection: 'column',

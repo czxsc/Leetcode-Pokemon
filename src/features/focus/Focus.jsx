@@ -101,19 +101,10 @@ export function Focus() {
   const log = focus.log()
   const weatherMatch = team.some((m) => PM.byId(m.sp).type === weather.type)
   return (
-    <div
-      style={{
-        height: '100%',
-        minHeight: 0,
-        display: 'grid',
-        gridTemplateColumns: '1fr 320px',
-        gap: 14,
-        overflow: 'hidden',
-      }}
-    >
+    <div className="split">
       {/* FIELD */}
       <div
-        className="panel"
+        className="panel focus-field"
         style={{
           padding: 8,
           position: 'relative',
@@ -289,6 +280,7 @@ export function Focus() {
             : null}
           {/* header signs */}
           <div
+            className="focus-signs"
             style={{
               position: 'absolute',
               top: 10,
@@ -309,7 +301,7 @@ export function Focus() {
               {zone.name}
             </div>
             <div
-              className="wood-sign"
+              className="wood-sign focus-weather"
               style={{
                 padding: '6px 10px',
                 fontSize: 14,
@@ -321,7 +313,7 @@ export function Focus() {
           {/* session timer */}
           {active ? (
             <div
-              className="wood-sign"
+              className="wood-sign focus-clock"
               style={{
                 position: 'absolute',
                 top: 10,

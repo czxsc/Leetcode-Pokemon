@@ -114,16 +114,7 @@ export function Team() {
     </button>
   )
   return (
-    <div
-      style={{
-        height: '100%',
-        minHeight: 0,
-        display: 'grid',
-        gridTemplateColumns: '1fr 320px',
-        gap: 14,
-        position: 'relative',
-      }}
-    >
+    <div className="split">
       {toast ? <Toast msg={toast} /> : null}
       {detail ? <MonDetailModal iid={detail} onClose={() => setDetail(null)} /> : null}
       {/* collection grid */}
@@ -135,21 +126,8 @@ export function Team() {
           minHeight: 0,
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            marginBottom: 10,
-          }}
-        >
-          <div
-            className="panel-title"
-            style={{
-              margin: 0,
-              flex: 1,
-            }}
-          >
+        <div className="team-head">
+          <div className="panel-title head-title">
             <span className="dot" />
             {'Collection \u00b7 ' + st.owned.length}
           </div>
@@ -250,16 +228,12 @@ export function Team() {
             flex: 1,
             minHeight: 0,
             overflowY: 'auto',
-            paddingRight: 4,
+            // room for the slot badges, which stick out of the cards' top left corner
+            margin: '-10px 0 0 -10px',
+            padding: '10px 4px 0 10px',
           }}
         >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(5,1fr)',
-              gap: 10,
-            }}
-          >
+          <div className="team-grid">
             {sorted.map((m) => (
               <MonCard
                 key={m.iid}
@@ -277,7 +251,7 @@ export function Team() {
       </div>
       {/* team preview */}
       <div
-        className="panel cream"
+        className="panel cream team-side"
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -328,13 +302,7 @@ export function Team() {
           </div>
         </div>
         {/* 6 slots — tap a filled one for its detail card */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3,1fr)',
-            gap: 8,
-          }}
-        >
+        <div className="team-slots">
           {Array.from({
             length: 6,
           }).map((_, i) => {
@@ -371,6 +339,7 @@ export function Team() {
                 className="chip-card team-chip"
                 onClick={() => setDetail(m.iid)}
                 style={{
+                  aspectRatio: '1',
                   padding: '6px 2px',
                   textAlign: 'center',
                   cursor: 'pointer',

@@ -119,16 +119,7 @@ function BrandMenu({ session, onData }) {
         onClick={() => setOpen(!open)}
       >
         <Pokeball size={26} />
-        <span
-          className="pixel-font"
-          style={{
-            fontSize: 15,
-            lineHeight: 1,
-            color: '#5d4026',
-          }}
-        >
-          PokéLeet
-        </span>
+        <span className="pixel-font brand-word">PokéLeet</span>
         <span className="brand-caret" />
       </button>
       {open ? (
@@ -181,24 +172,8 @@ function BrandMenu({ session, onData }) {
 export function TopNav({ page, setPage, onDemo, session }) {
   const [dataOpen, setDataOpen] = useState(false)
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'stretch',
-        gap: 12,
-        marginBottom: 14,
-      }}
-    >
-      <div
-        className="wood-sign"
-        style={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '8px 16px',
-        }}
-      >
+    <div className="topnav">
+      <div className="wood-sign topnav-brand">
         <BrandMenu session={session} onData={() => setDataOpen(true)} />
         {config.demo ? (
           <button className="demo-badge" title="Online demo — click for details" onClick={onDemo}>
@@ -207,12 +182,7 @@ export function TopNav({ page, setPage, onDemo, session }) {
         ) : null}
         <SaveStatus />
       </div>
-      <nav
-        className="nav"
-        style={{
-          flex: 1,
-        }}
-      >
+      <nav className="nav">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -229,14 +199,7 @@ export function TopNav({ page, setPage, onDemo, session }) {
           </button>
         ))}
       </nav>
-      <div
-        className="wood-sign"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '8px 12px',
-        }}
-      >
+      <div className="wood-sign topnav-cur">
         <CurrencyCluster />
       </div>
       {/* out here so its veil covers the screen, not just the positioned sign */}

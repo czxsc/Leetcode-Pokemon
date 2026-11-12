@@ -64,18 +64,7 @@ export function TargetModal({ tier, onClose }) {
           placeholder={`Search ${tier} Pok\u00e9mon\u2026`}
           onChange={setQ}
         />
-        <div
-          style={{
-            flex: '1 1 360px',
-            minHeight: 0,
-            overflowY: 'auto',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(6,1fr)',
-            gap: 8,
-            paddingRight: 4,
-            alignContent: 'start',
-          }}
-        >
+        <div className="target-grid">
           {list.map((s) => (
             <button
               key={s.id}

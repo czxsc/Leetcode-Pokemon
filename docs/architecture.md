@@ -84,6 +84,19 @@ api  ─►  shared  ◄─  game
 unit-tested with a seeded random number generator, and why its rules could
 later run on the server (see [ADR 5](adr/0005-game-rules-as-pure-functions.md)).
 
+## Screen sizes
+
+`src/app/screen-size.js` decides how the app fits the window. From 1024px wide
+up, it gets its 1280-wide desktop layout, scaled to fill the window. Narrower
+than that it uses real pixels and reflows: pages stack, and the whole page
+scrolls instead of each panel.
+
+The narrow layouts are `@container screen` rules at the end of `src/theme.css`.
+They are container queries because the width that matters is the screen's own,
+which a media query can't see once the screen is scaled. They can only change
+what is in the stylesheet, so a page's layout (its grid columns, for example)
+belongs there and not in an inline style.
+
 ## Data
 
 A user's data is two **documents**, saved separately:

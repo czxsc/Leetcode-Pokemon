@@ -103,15 +103,7 @@ const POKEMON_ITEMS = [
 
 function ItemCard({ item, st, onBuy }) {
   return (
-    <div
-      className="chip-card"
-      style={{
-        padding: '22px 22px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-      }}
-    >
+    <div className="chip-card shop-item">
       <ItemIcon item={item} size={58} />
       <div
         style={{
@@ -182,18 +174,7 @@ export function Shop() {
         position: 'relative',
       }}
     >
-      <div
-        className="panel"
-        style={{
-          height: '100%',
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 24,
-          overflowY: 'auto',
-          padding: '26px 30px',
-        }}
-      >
+      <div className="panel shop-panel">
         <div
           style={{
             display: 'flex',
@@ -224,15 +205,7 @@ export function Shop() {
           </div>
         </div>
         {/* one grid: Pokémon items open the "feed to" picker, everything else goes straight into the bag */}
-        <div
-          style={{
-            flex: 1,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill,minmax(340px,1fr))',
-            gridAutoRows: 'minmax(132px, 1fr)',
-            gap: 18,
-          }}
-        >
+        <div className="shop-grid">
           {POKEMON_ITEMS.map((item) => (
             <ItemCard key={item.id} item={item} st={st} onBuy={() => setFeeding(item)} />
           ))}

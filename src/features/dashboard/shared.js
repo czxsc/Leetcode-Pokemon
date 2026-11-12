@@ -1,13 +1,6 @@
 export const ALL = '__all'
 
 // ---------- layout constants ----------
-export const colStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  height: '100%',
-  minHeight: 0,
-}
-
 export const scrollBody = {
   flex: 1,
   minHeight: 0,
