@@ -739,3 +739,43 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
   font-family:'Silkscreen'; font-size:10px; text-align:left; text-decoration:none; color:var(--wood-dark); }
 .brand-item:hover{ background:var(--cream-2); }
 .brand-note{ margin:6px 0 0; padding:10px 8px 4px; border-top:2px solid var(--card-line); font-size:12px; line-height:1.4; color:var(--ink-soft); }
+
+/* =========================================================
+   LOADING — while the save loads, or the cloud database wakes up
+   (app/LoadingScreen.jsx). Fades in late, so a quick load shows nothing.
+========================================================= */
+.loading{ position:fixed; inset:0; overflow-y:auto; display:flex; align-items:center; justify-content:center; padding:24px 16px;
+  animation:loading-in .3s ease .4s both; }
+@keyframes loading-in{ from{ opacity:0; } to{ opacity:1; } }
+.loading-panel{ width:440px; max-width:100%; margin:auto; padding:22px 24px 16px; }
+.loading-panel h1{ margin:0; flex:1; font-size:16px; font-weight:400; color:var(--wood-dark); }
+.loading-ball{ animation:loading-wobble 1.6s ease-in-out infinite; transform-origin:50% 85%; }
+@keyframes loading-wobble{ 0%,55%,100%{ transform:rotate(0); } 65%{ transform:rotate(-16deg); } 75%{ transform:rotate(13deg); }
+  85%{ transform:rotate(-7deg); } 92%{ transform:rotate(3deg); } }
+.loading-note{ margin:12px 0 0; font-size:14px; line-height:1.45; color:var(--ink-soft); }
+.loading-scene{ position:relative; height:170px; margin:10px 0; overflow:hidden; border:3px solid var(--wood-line); border-radius:10px;
+  background:linear-gradient(180deg, var(--sky-lite) 0%, var(--card-2) 85%);
+  cursor:pointer; touch-action:manipulation; user-select:none; -webkit-user-select:none; }
+.loading-scene.still{ cursor:default; }
+.loading-cloud{ position:absolute; top:18px; left:100%; width:44px; height:12px; border-radius:6px; background:#fff; opacity:.9;
+  box-shadow:12px -6px 0 -1px #fff, 24px -2px 0 -3px #fff; animation:loading-cloud 16s linear infinite; }
+.loading-cloud.far{ top:48px; opacity:.6; animation-duration:26s; animation-delay:-11s; }
+@keyframes loading-cloud{ from{ left:100%; } to{ left:-80px; } }
+.loading-ground{ position:absolute; left:0; right:0; bottom:0; height:24px; border-top:3px solid var(--sage-deep);
+  background:
+    linear-gradient(90deg, transparent 0 4px, var(--sage-deep) 4px 6px, transparent 6px 19px, var(--sage-deep) 19px 21px, transparent 21px) 0 0 / 32px 3px repeat-x,
+    linear-gradient(var(--sage) 0 7px, transparent 7px),
+    linear-gradient(90deg, transparent 0 9px, var(--wood) 9px 14px, transparent 14px 25px, var(--wood-dark) 25px 27px, transparent 27px) 0 14px / 32px 4px repeat-x,
+    var(--wood-lite); }
+.loading-runner{ position:absolute; left:44px; bottom:24px; z-index:2; width:64px; height:64px; }
+.loading-roller{ display:flex; width:100%; height:100%; }
+.loading-shadow{ position:absolute; left:54px; bottom:20px; z-index:1; width:44px; height:9px; border-radius:50%; background:rgba(60,45,30,.18); }
+.loading-shards{ position:absolute; left:0; bottom:27px; z-index:3; }
+.loading-shard{ position:absolute; left:-9px; bottom:-9px; visibility:hidden; }
+.loading-pop{ position:absolute; font-size:12px; color:var(--shard-deep); text-shadow:0 1px 0 #fff; pointer-events:none;
+  animation:loading-pop .6s ease-out forwards; }
+@keyframes loading-pop{ from{ opacity:1; transform:translate(-50%,50%); } to{ opacity:0; transform:translate(-50%,-90%); } }
+.loading-game{ display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; color:var(--ink-soft); }
+.loading-score{ display:inline-flex; align-items:center; gap:5px; font-family:'Silkscreen'; font-size:11px; color:var(--ink); white-space:nowrap; }
+.loading-best{ margin-left:6px; color:var(--ink-faint); }
+@media (prefers-reduced-motion: reduce){ .loading-ball, .loading-cloud{ animation:none; } }

@@ -157,8 +157,9 @@ and the card lists the steps to load it.
 
 ## Troubleshooting
 
-- **The first load after a while takes several seconds.** The database is
-  waking up from its pause. The app retries on its own.
+- **The first load after a while takes about 15 seconds.** The database is
+  waking up from its pause. The app shows a loading screen (where your lead
+  Pokémon hops for Shards meanwhile) and retries on its own.
 - **"Sign in to continue" / 401 errors:** sign out and back in. Access tokens
   last an hour and refresh automatically.
 - **Logs:** CloudWatch log groups for the `Api/Handler` and `Database/Migrate`
