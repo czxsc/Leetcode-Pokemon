@@ -79,7 +79,8 @@ click the reload icon (↻) on **PokéLeet Tracker**, then reload the PokéLeet 
 | **Cloud** (your own AWS account) | DynamoDB + PostgreSQL | yes, email or Google | yes, with the [Tracker from its Focus tab](docs/deploying.md#study-sessions-on-the-cloud-app) |
 | **Online demo** | this browser only | no | no |
 
-**Demo:** https://czxsc.github.io/Leetcode-Pokemon/
+**Try it:** https://pokeleet.sharonchen.dev. Sign in with email or Google, or
+choose [**Try the demo**](https://pokeleet.sharonchen.dev/?demo) to skip the account.
 
 > [!WARNING]
 > The demo is for trying PokéLeet out only. Progress is saved in that browser
