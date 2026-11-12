@@ -49,6 +49,9 @@ export function DataModal({ onClose }) {
   const [askDelete, setAskDelete] = useState(false)
   const fileRef = useRef(null)
   const disk = status.mode === 'local'
+  // An account can't import a backup: a hand-made file could hand out anything.
+  // (The local app's data is the user's own files, and the demo's stays in the browser.)
+  const canImport = status.mode !== 'cloud'
   function exportBackup() {
     try {
       const blob = new Blob([store.exportData()], {
@@ -209,7 +212,9 @@ export function DataModal({ onClose }) {
           ) : null}
         </div>
         <div style={hintStyle}>
-          Backups are a single JSON file you can keep anywhere or import on another computer.
+          {canImport
+            ? 'Backups are a single JSON file you can keep anywhere or import on another computer.'
+            : 'Download a copy of your problems and progress as a JSON file.'}
         </div>
         <div
           style={{
@@ -222,18 +227,22 @@ export function DataModal({ onClose }) {
           <button className="btn" type="button" onClick={exportBackup}>
             Export Backup
           </button>
-          <button className="btn" type="button" onClick={askImport}>
-            Import Backup
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            onChange={importBackup}
-            style={{
-              display: 'none',
-            }}
-          />
+          {canImport ? (
+            <>
+              <button className="btn" type="button" onClick={askImport}>
+                Import Backup
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                onChange={importBackup}
+                style={{
+                  display: 'none',
+                }}
+              />
+            </>
+          ) : null}
         </div>
         {msg ? (
           <div
