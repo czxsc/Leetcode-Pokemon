@@ -149,15 +149,11 @@ own DNS zone in Route 53, so the parent domain's DNS can stay wherever it is.
 
 ## Study sessions on the cloud app
 
-The PokéLeet Tracker extension only runs on the sites listed in
-`extension/manifest.json` (`localhost` by default). To use Focus sessions on
-your deployment, add your app's address to both lists and reload the
-extension:
-
-```json
-"host_permissions": ["https://leetcode.com/*", "http://localhost/*", "http://127.0.0.1/*", "https://dxxxxxxxx.cloudfront.net/*"],
-"content_scripts": [{ "matches": ["http://localhost/*", "http://127.0.0.1/*", "https://dxxxxxxxx.cloudfront.net/*"], ... }]
-```
+The PokéLeet Tracker extension only runs on the sites its manifest lists:
+`extension/` in the repo runs on `localhost`. On your deployment, open
+**Focus** and click **Download the Tracker**: the app zips its copy of the
+extension with your app's address added (`src/platform/tracker-download.ts`),
+and the card lists the steps to load it.
 
 ## Troubleshooting
 

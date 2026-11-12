@@ -7,12 +7,15 @@
    another app doesn't change the answer; switching tabs or windows does.
 
    The browser only shows this extension the addresses of leetcode.com
-   and localhost tabs, so it never sees the rest of your browsing. It
-   stores nothing and sends nothing over the network.
+   tabs and PokéLeet's own (localhost, plus the site a downloaded copy
+   came from), so it never sees the rest of your browsing. It stores
+   nothing and sends nothing over the network.
 ===================================================================== */
 
 const LEETCODE = /^https:\/\/leetcode\.com(\/|$)/
-const APP_PAGES = ['http://localhost/*', 'http://127.0.0.1/*']
+// PokéLeet's pages: wherever bridge.js runs (manifest.json, which a copy
+// downloaded from the app extends with the app's own address)
+const APP_PAGES = chrome.runtime.getManifest().content_scripts.flatMap((c) => c.matches)
 const PROBLEM_LIST = 'https://leetcode.com/problemset/'
 
 // The last answer sent to PokéLeet. Lost when the browser puts this worker

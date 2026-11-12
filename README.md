@@ -67,7 +67,7 @@ npm install
 npm start
 ```
 
-If the Focus tab says **Tracker needs a reload**, go to `[browser]://extensions`,
+If the Focus tab says **Tracker needs an update**, go to `[browser]://extensions`,
 click the reload icon (↻) on **PokéLeet Tracker**, then reload the PokéLeet tab.
 
 ## Ways to run it
@@ -75,7 +75,7 @@ click the reload icon (↻) on **PokéLeet Tracker**, then reload the PokéLeet 
 | | Data lives in | Accounts | Study sessions |
 | --- | --- | --- | --- |
 | **Local** (`npm start`, above) | `data/` in the project folder | no, just you | yes |
-| **Cloud** (your own AWS account) | DynamoDB + PostgreSQL | yes, email or Google | yes, after [one extension tweak](docs/deploying.md#study-sessions-on-the-cloud-app) |
+| **Cloud** (your own AWS account) | DynamoDB + PostgreSQL | yes, email or Google | yes, with the [Tracker from its Focus tab](docs/deploying.md#study-sessions-on-the-cloud-app) |
 | **Online demo** | this browser only | no | no |
 
 **Demo:** https://czxsc.github.io/Leetcode-Pokemon/

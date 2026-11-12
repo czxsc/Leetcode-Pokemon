@@ -5,6 +5,57 @@ import * as Study from '../../game/study'
 import { focus } from '../../state/focus'
 import { clock } from './shared'
 
+// ---- the Tracker as a download, made from this app's copy (side panel) ----
+function TrackerDownload({ steps }) {
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
+  async function download() {
+    setBusy(true)
+    setFailed(false)
+    try {
+      // loaded on demand: the zip maker isn't needed until someone asks
+      const { downloadTracker } = await import('../../platform/tracker-download')
+      downloadTracker()
+    } catch (err) {
+      console.warn('[pokeleet] could not make the Tracker download:', err)
+      setFailed(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const small = { fontSize: 12, color: 'var(--ink-soft)', lineHeight: 1.45 }
+  return (
+    <div style={{ marginTop: 9 }}>
+      <button
+        className="btn green"
+        style={{ width: '100%', justifyContent: 'center', fontSize: 10, padding: '8px 10px' }}
+        disabled={busy}
+        onClick={download}
+      >
+        {busy ? 'Preparing…' : 'Download the Tracker (.zip)'}
+      </button>
+      {failed ? (
+        <div style={{ ...small, color: 'var(--hard)', marginTop: 6 }}>
+          Couldn&rsquo;t prepare the download. Check your connection and try again.
+        </div>
+      ) : null}
+      {steps ? (
+        <ol style={{ ...small, margin: '8px 0 0', paddingLeft: 18 }}>
+          <li>Unzip it.</li>
+          <li>
+            Open <b>chrome://extensions</b> and turn on <b>Developer mode</b>.
+          </li>
+          <li>
+            {/* the folder inside the zip (platform/tracker-download.ts) */}
+            Click <b>Load unpacked</b> and pick the <b>pokeleet-tracker</b> folder.
+          </li>
+          <li>Reload this page.</li>
+        </ol>
+      ) : null}
+    </div>
+  )
+}
+
 // ---- Tracker status (side panel) ----
 export function TrackerStatus({ tracker }) {
   const cfg = {
@@ -20,17 +71,17 @@ export function TrackerStatus({ tracker }) {
     missing: {
       color: 'var(--hard)',
       label: 'Tracker not found',
-      text: 'Study sessions need the PokéLeet Tracker extension. Open chrome://extensions, turn on Developer mode, click Load unpacked and pick the extension folder inside your PokéLeet folder. Then reload this page.',
+      text: 'Study sessions need the PokéLeet Tracker, a small extension for Chrome, Edge or Brave that tells PokéLeet when LeetCode is your active tab.',
     },
     outdated: {
       color: 'var(--coin-deep)',
-      label: 'Tracker needs a reload',
+      label: 'Tracker needs an update',
       text:
         'Your Tracker (v' +
         tracker.version +
         ') is older than this PokéLeet (v' +
         tracker.expectedVersion +
-        '). On chrome://extensions click the reload icon on PokéLeet Tracker, then reload this page.',
+        '). Download it again and unzip it over your old copy, then click its reload icon on chrome://extensions and reload this page.',
     },
     gone: {
       color: 'var(--coin-deep)',
@@ -124,6 +175,9 @@ export function TrackerStatus({ tracker }) {
             </span>
           ) : null}
         </div>
+      ) : null}
+      {tracker.state === 'missing' || tracker.state === 'outdated' ? (
+        <TrackerDownload steps={tracker.state === 'missing'} />
       ) : null}
     </div>
   )

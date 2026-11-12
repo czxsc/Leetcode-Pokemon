@@ -1,11 +1,11 @@
 /* =====================================================================
-   PokéLeet Tracker — runs on localhost pages.
+   PokéLeet Tracker — runs on PokéLeet's pages (manifest.json).
 
    Stays silent until the page introduces itself as PokéLeet (a "hello"
    message from src/tracker.js). From then on it relays the background
    worker's reports of whether LeetCode is the active tab to the page,
-   and the page's requests to bring LeetCode to the front. Other
-   localhost pages never hear from it.
+   and the page's requests to bring LeetCode to the front. Other pages
+   at those addresses never hear from it.
 ===================================================================== */
 
 const FROM_APP = 'pokeleet-app'

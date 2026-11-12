@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "PokéLeet Tracker",
-  "version": "1.0.0",
-  "description": "Lets your local PokéLeet know when LeetCode is your active tab, so study sessions only count time spent there.",
+  "version": "1.1.0",
+  "description": "Lets PokéLeet know when LeetCode is your active tab, so study sessions only count time spent there.",
   "background": { "service_worker": "background.js" },
   "host_permissions": ["https://leetcode.com/*", "http://localhost/*", "http://127.0.0.1/*"],
   "content_scripts": [

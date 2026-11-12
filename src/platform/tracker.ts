@@ -9,7 +9,7 @@
    status().state:
      checking     waiting for the Tracker to answer
      connected    ready
-     outdated     older than the copy in this repo; reload it in the browser
+     outdated     older than this app's copy; update it (download it again, or reload it)
      missing      not installed, switched off, or installed after this page loaded
      gone         reloaded or removed since this page loaded
      unavailable  the online demo, which the Tracker doesn't run on
