@@ -11,6 +11,9 @@ export default defineConfig(({ mode }) => {
     // The online demo (npm run build:demo) lives under /<repo>/ on GitHub Pages.
     base: mode === 'demo' ? env.POKELEET_BASE || '/Leetcode-Pokemon/' : '/',
     plugins: [react(), pokeleetApi({ dataDir: env.POKELEET_DATA_DIR || 'data' })],
+    // The dev server never needs infra/. On Windows, watching it also keeps
+    // infra/cdk.out's folders open, so CDK can't rename its Lambda bundles (EPERM).
+    server: { watch: { ignored: ['**/infra/**'] } },
     // infra/ is its own package with its own tests (cd infra && npm test)
     test: { exclude: [...configDefaults.exclude, 'infra/**'] },
   }
