@@ -21,6 +21,8 @@ const CHARGE_MS = 1500,
 
 const RANK = ['common', 'rare', 'epic', 'legendary']
 
+const draws = (n) => n + (n === 1 ? ' draw' : ' draws')
+
 export function Summon() {
   const st = useStore()
   const [phase, setPhase] = useState('idle')
@@ -277,7 +279,7 @@ export function Summon() {
             pity={st.legendaryTargetPity}
             pityMax={LEGEND_TARGET_PITY}
             color="var(--sage-deep)"
-            emptyText="No legendary target set. Choose one to guarantee it within 100 draws."
+            emptyText={`No legendary target set. Choose one to guarantee it within ${draws(LEGEND_TARGET_PITY - st.legendaryTargetPity)}.`}
           />
           <div
             style={{
@@ -294,7 +296,7 @@ export function Summon() {
             pity={st.epicTargetPityCount}
             pityMax={EPIC_TARGET_PITY}
             color="var(--lav-deep)"
-            emptyText="No epic target set. Choose one to guarantee it within 60 draws."
+            emptyText={`No epic target set. Choose one to guarantee it within ${draws(EPIC_TARGET_PITY - st.epicTargetPityCount)}.`}
           />
         </div>
       </div>

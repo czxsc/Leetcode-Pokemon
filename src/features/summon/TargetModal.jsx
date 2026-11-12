@@ -48,14 +48,14 @@ export function TargetModal({ tier, onClose }) {
                 <b>legendary</b>,
                 ' to chase. You\u2019re guaranteed to pull it within ',
                 <b>100 draws</b>,
-                ' \u2014 the counter resets if you get it sooner.',
+                ', counting the draws you\u2019ve already made.',
               ]
             : [
                 'Pick an ',
                 <b>epic</b>,
                 ' to chase. You\u2019re guaranteed to pull it within ',
                 <b>60 draws</b>,
-                ' \u2014 the counter resets if you get it sooner.',
+                ', counting the draws you\u2019ve already made.',
               ]}
         </div>
         <SearchBox

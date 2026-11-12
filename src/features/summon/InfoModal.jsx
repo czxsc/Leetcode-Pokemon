@@ -111,8 +111,8 @@ export function InfoModal({ onClose }) {
         <div style={para}>
           <b>Targets</b>
           {` — a chosen legendary within ${LEGEND_TARGET_PITY} draws, a chosen epic within ${EPIC_TARGET_PITY}. `}
-          Each counter resets when you pull it (early or on pity), and changing the target restarts
-          it.
+          Every draw counts, even before you choose a target, and changing the target keeps the
+          count. It starts over once you pull the target (early or on pity).
         </div>
         {head('DUPLICATES')}
         <div style={para}>

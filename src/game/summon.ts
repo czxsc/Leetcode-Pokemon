@@ -1,8 +1,11 @@
 /* =====================================================================
    Summoning. Pity: an Epic+ is guaranteed every EPIC_PITY draws and a
    Legendary every LEGEND_PITY; a chosen target arrives within its own
-   pity count. Items (Single Draw only) set the draw's rarity or
-   generation; when a pity or target guarantee lands, they are kept.
+   pity count. Every draw counts toward the targets, chosen or not, so
+   draws made before choosing one (or before changing it) still count;
+   a target's count starts over only when it arrives. Items (Single Draw
+   only) set the draw's rarity or generation; when a pity or target
+   guarantee lands, they are kept.
 ===================================================================== */
 import {
   addLevels,
@@ -52,16 +55,15 @@ export interface PullResult {
   kept: boolean
 }
 
+// Choosing or changing a target keeps the draws already counted toward it.
 export const setLegendaryTarget = (s: GameState, spId: string | null): GameState => ({
   ...s,
   guaranteedLegendary: spId || null,
-  legendaryTargetPity: 0,
 })
 
 export const setEpicTarget = (s: GameState, spId: string | null): GameState => ({
   ...s,
   guaranteedEpic: spId || null,
-  epicTargetPityCount: 0,
 })
 
 // Draws `count` friends (the Shards are spent by the caller).
@@ -92,8 +94,12 @@ export function pull(
   for (let i = 0; i < count; i++) {
     legendPity++
     epicPity++
-    if (legendTarget) legendTargetPity++
-    if (epicTarget) epicTargetPity++
+    // with no target yet, stop one short of the guarantee: choosing one makes the next draw it
+    legendTargetPity = Math.min(
+      legendTargetPity + 1,
+      legendTarget ? Infinity : LEGEND_TARGET_PITY - 1,
+    )
+    epicTargetPity = Math.min(epicTargetPity + 1, epicTarget ? Infinity : EPIC_TARGET_PITY - 1)
     totalPulls++
     let sp: Species
     let pityHit = false

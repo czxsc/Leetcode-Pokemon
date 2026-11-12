@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { DUP_REFUND, EPIC_PITY, LEGEND_PITY, LEGEND_TARGET_PITY } from './rules'
+import { DUP_REFUND, EPIC_PITY, EPIC_TARGET_PITY, LEGEND_PITY, LEGEND_TARGET_PITY } from './rules'
 import { byId } from './species'
-import { pull, setLegendaryTarget } from './summon'
+import { pull, setEpicTarget, setLegendaryTarget } from './summon'
 import { ctx, game, seeded } from './test-helpers'
 
 const rarityOf = (id: string) => byId(id)!.rarity
@@ -31,6 +31,35 @@ describe('pull', () => {
     const { results, state } = pull(s, 1, null, ctx())
     expect(results[0]).toMatchObject({ speciesId: 'mewtwo', target: true, targetTier: 'legendary' })
     expect(state.legendaryTargetPity).toBe(0)
+  })
+
+  it('counts draws made before a target is chosen', () => {
+    const before = pull(game({ shards: 10_000 }), 10, null, ctx()).state
+    expect(before.legendaryTargetPity).toBe(10)
+    expect(before.epicTargetPityCount).toBe(10)
+    const chosen = setLegendaryTarget(setEpicTarget(before, 'venusaur'), 'mewtwo')
+    expect(chosen.legendaryTargetPity).toBe(10)
+    expect(chosen.epicTargetPityCount).toBe(10)
+  })
+
+  it('keeps the count when the target changes', () => {
+    const s = { ...setLegendaryTarget(game(), 'mewtwo'), legendaryTargetPity: 40 }
+    const changed = setLegendaryTarget(s, 'lugia')
+    expect(changed.guaranteedLegendary).toBe('lugia')
+    expect(changed.legendaryTargetPity).toBe(40)
+    expect(setLegendaryTarget(s, null).legendaryTargetPity).toBe(40)
+  })
+
+  it('without a target, counts up to one draw short, so a target chosen then comes next', () => {
+    const s = game({
+      legendaryTargetPity: LEGEND_TARGET_PITY - 1,
+      epicTargetPityCount: EPIC_TARGET_PITY - 1,
+    })
+    const { state } = pull(s, 5, null, ctx())
+    expect(state.legendaryTargetPity).toBe(LEGEND_TARGET_PITY - 1)
+    expect(state.epicTargetPityCount).toBe(EPIC_TARGET_PITY - 1)
+    const { results } = pull(setLegendaryTarget(state, 'mewtwo'), 1, null, ctx())
+    expect(results[0]).toMatchObject({ speciesId: 'mewtwo', target: true })
   })
 
   it('spends an armed ball and forces its rarity', () => {
