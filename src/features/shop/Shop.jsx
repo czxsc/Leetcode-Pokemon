@@ -40,7 +40,7 @@ const BAG_ITEMS = [
     sprite: 'key-stone',
     emoji: '🔮',
     btn: 'lav',
-    desc: 'Unlock a Mega Evolution from a friend’s detail card',
+    desc: 'Unlock a Mega Evolution from a Pokémon’s detail card',
     bag: (st) => st.megaStones || 0,
     tag: 'var(--lav)',
     buy: () => store.buyStone('mega') && 'Mega Stone added to your bag!',
@@ -51,22 +51,22 @@ const BAG_ITEMS = [
     sprite: 'red-shard',
     emoji: '🌀',
     btn: 'pink',
-    desc: 'Unlock a Gigantamax form from a friend’s detail card',
+    desc: 'Unlock a Gigantamax form from a Pokémon’s detail card',
     bag: (st) => st.gmaxStones || 0,
     tag: 'var(--pink)',
     buy: () => store.buyStone('gmax') && 'Gigantamax Stone added to your bag!',
   },
 ].map(withPrice)
 
-// `eligible(inst, st)` returns null when the item can be used on that friend, else a short reason.
-const FRIEND_ITEMS = [
+// `eligible(inst, st)` returns null when the item can be used on that Pokémon, else a short reason.
+const POKEMON_ITEMS = [
   {
     id: 'candy',
     name: 'Rare Candy',
     sprite: 'rare-candy',
     emoji: '🍬',
     btn: '',
-    desc: '+35 EXP to one friend of your choice',
+    desc: '+35 EXP to one Pokémon of your choice',
     eligible: () => null,
     info: (inst) => {
       const need = expToNext(inst.level)
@@ -87,7 +87,7 @@ const FRIEND_ITEMS = [
     sprite: 'shiny-charm',
     emoji: '✨',
     btn: 'gold',
-    desc: 'Make a friend shiny — its normal form can be pulled again as new',
+    desc: 'Make a Pokémon shiny — its normal form can be pulled again as new',
     eligible: (inst, st) => {
       if (inst.shiny) return 'Already shiny'
       if (st.owned.some((o) => o.sp === inst.sp && o.shiny)) return 'You already have a shiny one'
@@ -169,7 +169,7 @@ function ItemCard({ item, st, onBuy }) {
 
 export function Shop() {
   const st = useStore()
-  const [feeding, setFeeding] = useState(null) // friend item whose picker is open
+  const [feeding, setFeeding] = useState(null) // Pokémon item whose picker is open
   const [toast, setToast] = useState(null)
   const flash = (m) => {
     setToast(m)
@@ -223,7 +223,7 @@ export function Shop() {
             {st.coins.toLocaleString()}
           </div>
         </div>
-        {/* one grid: friend items open the "feed to" picker, everything else goes straight into the bag */}
+        {/* one grid: Pokémon items open the "feed to" picker, everything else goes straight into the bag */}
         <div
           style={{
             flex: 1,
@@ -233,7 +233,7 @@ export function Shop() {
             gap: 18,
           }}
         >
-          {FRIEND_ITEMS.map((item) => (
+          {POKEMON_ITEMS.map((item) => (
             <ItemCard key={item.id} item={item} st={st} onBuy={() => setFeeding(item)} />
           ))}
           {[...BAG_ITEMS, ...GACHA_ITEMS].map((item) => (

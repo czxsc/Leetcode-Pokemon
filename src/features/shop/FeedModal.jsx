@@ -52,7 +52,7 @@ function PickerMon({ inst, selected, reason, onPick }) {
   )
 }
 
-// ---- "feed to" picker for friend items ----
+// ---- "feed to" picker for Pokémon items ----
 export function FeedModal({ item, onClose, onDone }) {
   const st = useStore()
   const [q, setQ] = useState('')
@@ -153,7 +153,7 @@ export function FeedModal({ item, onClose, onDone }) {
         color: 'var(--ink-faint)',
       }}
     >
-      No friend can use this right now
+      No Pokémon can use this right now
     </div>
   )
   return (
@@ -207,7 +207,7 @@ export function FeedModal({ item, onClose, onDone }) {
             </div>
           </div>
         </div>
-        <SearchBox value={q} autoFocus={true} placeholder="Search your friends…" onChange={setQ} />
+        <SearchBox value={q} autoFocus={true} placeholder="Search your Pokémon…" onChange={setQ} />
         <div
           style={{
             flex: '1 1 300px',
