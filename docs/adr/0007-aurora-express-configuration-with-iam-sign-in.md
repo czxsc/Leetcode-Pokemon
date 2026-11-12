@@ -55,7 +55,9 @@ Express configuration changes the ground rules of ADR 3:
 - Each request pays for a new TLS connection (tens of milliseconds). That's
   fine at this scale; RDS Proxy isn't available without a VPC.
 - Connection failures other than bad credentials answer **503**, and the web
-  app retries. That covers the database resuming from a pause.
+  app retries. That covers the database resuming from a pause, which takes
+  about 15 seconds: connecting gives up after 5, so the app tries again
+  sooner.
 - AWS picks the engine version (PostgreSQL 17 at the time of writing), and
   backups keep the express default of 1 day.
 - Without the Data API's 1 MiB response limit, the library store reads with

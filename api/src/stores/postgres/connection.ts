@@ -16,8 +16,10 @@ import { type ErasableStore, UnavailableError } from '../../documents.ts'
 import { createPostgresLibraryStore } from './library-store.ts'
 
 const PORT = 5432
-// Under the Lambda's timeout, so a database that's still waking up gets a 503 (and a retry).
-const CONNECT_TIMEOUT_MS = 10_000
+// While the database wakes up from a pause, connecting just waits. Giving up
+// well before the Lambda's timeout answers 503 sooner, so the app tries
+// again sooner; a normal connection takes well under a second.
+const CONNECT_TIMEOUT_MS = 5_000
 
 // Signs in as `user` with an IAM token (the caller needs rds-db:connect for that user).
 export function iamAuth({
