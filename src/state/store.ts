@@ -13,6 +13,7 @@ import { createDemoData } from '../game/demo-seed'
 import { importLegacyState, isLegacyState, LEGACY_KEY } from '../game/legacy-import'
 import * as Problems from '../game/problems'
 import * as Quests from '../game/quests'
+import * as Recall from '../game/recall'
 import { buildState, rollDailyState, splitState } from '../game/state'
 import * as Summon from '../game/summon'
 import type { Ctx, Form, GachaItem, GameState } from '../game/types'
@@ -163,13 +164,12 @@ export const store = {
   claimDaily: (questId: string, step: number) =>
     commit(Quests.claimDaily(state, questId, step, ctx())),
   claimAchievements: (ids: string[]) => commit(Chapters.claimAchievements(state, ids, ctx())),
-  setRecallBest: (n: number) =>
-    set({
-      ...state,
-      recallBest: Math.max(state.recallBest, n),
-      recallToday: true,
-      stats: { ...state.stats, recalls: state.stats.recalls + 1 },
-    }),
+  // Returns the Shards paid.
+  finishRecall(correct: number) {
+    const r = Recall.finishQuiz(state, correct, ctx())
+    set(r.state)
+    return r.shards
+  },
 
   // ---- problems and tags ----
   tags: () => Problems.tags(state),

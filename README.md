@@ -24,7 +24,8 @@ to earn coins for upgrades.
   Epic), and a Generation Ticket (pick the generation, and combine it with any
   of the others).
 - **Daily Quests** that step up as you claim them (solve 1 → 3 → 5 problems,
-  Focus 30 min → 2 h), and **Recall quizzes** for bonus Shards.
+  Focus 30 min → 2 h), and **Recall quizzes** (Big-O, language features,
+  library syntax and twists on classic problems) for up to 1000 bonus Shards a day.
 - **Progression quests:** six chapters of one-time goals, from your first draw
   to solving problems in every tag. Each chapter opens once the one before it
   is fully claimed.

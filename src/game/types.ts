@@ -54,6 +54,7 @@ export interface Progress {
   quests: Record<string, number | boolean> // daily quest id -> steps claimed today
   recallBest: number
   recallToday: boolean
+  recallShardsToday: number // counts toward the daily limit (see recall.ts)
   pity: number
   epicPity: number
   totalPulls: number

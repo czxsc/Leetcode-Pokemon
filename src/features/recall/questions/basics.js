@@ -1,70 +1,83 @@
-// multiple choice — q: prompt, o: options[], a: answer index
+// The original quick-fire questions: everyday Python syntax, simple Big-O and classic problem ideas.
+
+// multiple choice: q is the prompt, o the options, a the answer index, why the explanation
 export const CHOICE = [
   {
     tag: 'syntax',
     q: 'Count occurrences of each element in a list?',
     o: ['Counter(nums)', 'sorted(nums)', 'set(nums)', 'list(nums)'],
     a: 0,
+    why: '`Counter` (from `collections`) is a dict of item → count. It builds in O(n), and a missing key reads as 0 instead of raising an error.',
   },
   {
     tag: 'syntax',
     q: 'Reverse a list `a` in one expression?',
     o: ['a.sort()', 'a[::-1]', 'a.pop()', 'reversed()'],
     a: 1,
+    why: 'A slice is `[start:stop:step]`. A step of -1 walks backwards over everything and returns a new list.',
   },
   {
     tag: 'syntax',
     q: 'Default dict of lists?',
     o: ['dict()', 'defaultdict(list)', '{}.list', 'Counter()'],
     a: 1,
+    why: '`defaultdict(list)` calls `list()` for any missing key, so `d[k].append(x)` works without checking first.',
   },
   {
     tag: 'syntax',
     q: 'Heap: pop the smallest item?',
     o: ['heapq.heappush', 'heapq.heappop', 'heapq.nlargest', 'min()'],
     a: 1,
+    why: '`heappop` removes and returns the smallest item in O(log n). `heapq` works on a plain list you pass in.',
   },
   {
     tag: 'syntax',
     q: 'Iterate index + value together?',
     o: ['zip(nums)', 'range(nums)', 'enumerate(nums)', 'items(nums)'],
     a: 2,
+    why: '`enumerate` yields `(index, value)` pairs. Pass a second argument to start counting elsewhere: `enumerate(nums, 1)`.',
   },
   {
     tag: 'syntax',
     q: 'Unpack-swap a and b?',
     o: ['a,b=b,a', 'swap(a,b)', 'a=b=0', 'a<->b'],
     a: 0,
+    why: 'The right side builds a tuple first, then unpacks it into the names on the left, so no temp variable is needed.',
   },
   {
     tag: 'bigo',
     q: 'Big-O of binary search?',
     o: ['O(1)', 'O(log n)', 'O(n)', 'O(n log n)'],
     a: 1,
+    why: 'Each step throws away half of what is left, and n can only be halved about log₂(n) times.',
   },
   {
     tag: 'bigo',
     q: 'Big-O of building a hash set from n items?',
     o: ['O(log n)', 'O(n)', 'O(n^2)', 'O(1)'],
     a: 1,
+    why: 'Each insert is O(1) on average, and there are n of them.',
   },
   {
     tag: 'bigo',
     q: 'Time to sort n items (Timsort)?',
     o: ['O(n)', 'O(n log n)', 'O(n^2)', 'O(log n)'],
     a: 1,
+    why: 'Timsort is a merge sort that reuses already-sorted runs. Merging takes O(n) per level across log n levels. Already-sorted input is the O(n) best case.',
   },
   {
     tag: 'bigo',
     q: 'Space of recursion depth n with no memo?',
     o: ['O(1)', 'O(log n)', 'O(n)', 'O(n^2)'],
     a: 2,
+    why: 'Each active call keeps a stack frame, and n calls are open at the deepest point.',
   },
   {
     tag: 'bigo',
     q: 'Lookup in a dict by key?',
     o: ['O(1) avg', 'O(log n)', 'O(n)', 'O(n log n)'],
     a: 0,
+    why: 'The key is hashed straight to a slot, so the dict size does not matter. Heavy collisions could make it O(n), but that is rare.',
   },
   {
     tag: 'pseudo',
@@ -76,51 +89,58 @@ export const CHOICE = [
       'Binary search each',
     ],
     a: 1,
+    why: 'For each `x`, check whether `target - x` was already seen. One pass with O(1) lookups gives O(n), and it keeps the original indices.',
   },
   {
     tag: 'pseudo',
     q: 'Detect a cycle in a linked list?',
     o: ['Reverse the list', 'Fast & slow pointers', 'Sort the nodes', 'Hash every value'],
     a: 1,
+    why: 'Fast moves 2 steps and slow moves 1. Inside a cycle, fast closes the gap by 1 each step, so they must meet. O(n) time, O(1) space.',
   },
   {
     tag: 'pseudo',
     q: 'Number of Islands traversal?',
     o: ['Binary search', 'DFS/BFS flood fill', 'Topological sort', 'Dijkstra'],
     a: 1,
+    why: 'Each unvisited land cell starts a new island. Flood fill marks all the land connected to it, so it is never counted twice.',
   },
   {
     tag: 'pseudo',
     q: 'Course Schedule detects what?',
-    o: ['Shortest path', 'A cycle in a DAG', 'Min spanning tree', 'Max flow'],
+    o: ['Shortest path', 'A cycle in a directed graph', 'Min spanning tree', 'Max flow'],
     a: 1,
+    why: 'Prerequisites form a directed graph. You can finish every course only if there is no cycle, which a topological sort detects.',
   },
   {
     tag: 'pseudo',
     q: 'Climbing Stairs recurrence?',
     o: ['f(n)=f(n-1)*2', 'f(n)=f(n-1)+f(n-2)', 'f(n)=n!', 'f(n)=f(n/2)+1'],
     a: 1,
+    why: 'The last move was a 1-step or a 2-step, so the ways to reach `n` are the ways to reach `n-1` plus the ways to reach `n-2`. That is Fibonacci.',
   },
   {
     tag: 'pseudo',
     q: 'Kadane\u2019s (Max Subarray) keeps?',
     o: ['A sorted window', 'Running max ending here', 'A min-heap', 'Two pointers'],
     a: 1,
+    why: 'At each `x`, either extend the current subarray or start fresh: `cur = max(x, cur + x)`. Track the best `cur` seen.',
   },
   {
     tag: 'syntax',
     q: 'Merge dict b into a (3.9+)?',
     o: ['a+b', 'a|b', 'a&b', 'a.merge(b)'],
     a: 1,
+    why: '`a | b` returns a new merged dict, and `b` wins on shared keys. `a |= b` does it in place.',
   },
 ].map((x) => ({
   ...x,
   kind: 'choice',
 }))
 
-// typed — code: setup shown above the prompt, a: model answer, alt: other accepted answers.
-// Answers are compared after norm() below; a RegExp alt is tested against the normalized input
-// (no whitespace, ' quotes) so loop and lambda variable names can be anything.
+// typed: code is the setup shown above the prompt, a the model answer, alt other accepted answers.
+// Answers are compared after norm() in quiz.js; a RegExp alt is tested against the normalized input
+// (no whitespace, ' quotes, no module prefix) so loop and lambda variable names can be anything.
 export const TYPED = [
   // ---- Python idioms ----
   {
@@ -129,6 +149,7 @@ export const TYPED = [
     q: 'Write an expression for a reversed copy of `a`.',
     a: 'a[::-1]',
     alt: ['list(reversed(a))'],
+    why: 'Step -1 walks from the end to the start. The slice is a new list, so `a` is untouched.',
   },
   {
     tag: 'code',
@@ -136,6 +157,7 @@ export const TYPED = [
     q: 'Reverse `a` in place (no new list).',
     a: 'a.reverse()',
     alt: ['a[:] = a[::-1]'],
+    why: '`list.reverse()` swaps items inside the same list and returns `None`, so do not assign its result.',
   },
   {
     tag: 'code',
@@ -143,6 +165,7 @@ export const TYPED = [
     q: 'Reverse the string `s`.',
     a: 's[::-1]',
     alt: ["''.join(reversed(s))"],
+    why: 'Strings slice just like lists. They have no `.reverse()` because they are immutable.',
   },
   {
     tag: 'code',
@@ -150,36 +173,42 @@ export const TYPED = [
     q: 'Expression: is `s` a palindrome?',
     a: 's == s[::-1]',
     alt: ['s[::-1] == s'],
+    why: 'Compare the string to its reverse. It takes O(n) time and space. Two pointers avoid the extra copy.',
   },
   {
     tag: 'code',
     code: 'a = [3, 1, 4, 1, 5]',
     q: 'Get the last element of `a`.',
     a: 'a[-1]',
+    why: 'Negative indices count from the end: -1 is the last item, -2 the one before it.',
   },
   {
     tag: 'code',
     code: 'a = [3, 1, 4, 1, 5]',
     q: 'Slice: every element except the first.',
     a: 'a[1:]',
+    why: '`[1:]` starts at index 1 and leaves the stop empty, so it runs to the end. It copies, so it is O(n).',
   },
   {
     tag: 'code',
     code: 'nums = [3, 1, 2]',
     q: 'Sort `nums` in place, largest first.',
     a: 'nums.sort(reverse=True)',
+    why: '`.sort()` changes the list and returns `None`. `reverse=True` flips the order and keeps the sort stable.',
   },
   {
     tag: 'code',
     code: "words = ['kiwi', 'fig', 'banana']",
     q: 'New list of `words` sorted by length.',
     a: 'sorted(words, key=len)',
+    why: '`sorted` returns a new list. `key` is called on each item, and the items are ordered by those results.',
   },
   {
     tag: 'code',
     code: "words = ['kiwi', 'fig', 'banana']",
     q: 'The longest word, in one call.',
     a: 'max(words, key=len)',
+    why: '`max` also takes `key`: it compares `len(word)` but returns the word itself. Ties go to the first one.',
   },
   {
     tag: 'code',
@@ -187,6 +216,7 @@ export const TYPED = [
     q: 'Sort `intervals` in place by start, using a lambda.',
     a: 'intervals.sort(key=lambda x: x[0])',
     alt: [/^intervals\.sort\(key=lambda(\w+):\1\[0\]\)$/, 'intervals.sort()'],
+    why: 'The lambda tells `sort` to compare only `x[0]`. Plain `.sort()` also works here, since lists compare element by element.',
   },
   {
     tag: 'code',
@@ -194,6 +224,7 @@ export const TYPED = [
     q: 'Sort `people` in place: oldest first, then name A\u2192Z.',
     a: 'people.sort(key=lambda p: (-p[1], p[0]))',
     alt: [/^people\.sort\(key=lambda(\w+):\(-\1\[1\],\1\[0\]\)\)$/],
+    why: 'Tuples compare left to right, so the second part only breaks ties. Negating the age makes it descending while names stay ascending.',
   },
   {
     tag: 'code',
@@ -203,8 +234,9 @@ export const TYPED = [
     alt: [
       /^points\.sort\(key=lambda(\w+):\1\[0\]\*\*2\+\1\[1\]\*\*2\)$/,
       /^points\.sort\(key=lambda(\w+):\1\[0\]\*\1\[0\]\+\1\[1\]\*\1\[1\]\)$/,
-      /^points\.sort\(key=lambda(\w+):math\.hypot\(\*\1\)\)$/,
+      /^points\.sort\(key=lambda(\w+):hypot\(\*\1\)\)$/,
     ],
+    why: 'x² + y² is the squared distance. Skipping the square root is fine because it keeps the same order, and it avoids floats.',
   },
   {
     tag: 'code',
@@ -212,6 +244,7 @@ export const TYPED = [
     q: 'A list of `n` zeros.',
     a: '[0] * n',
     alt: ['n * [0]'],
+    why: '`*` repeats the list. Safe here because numbers are immutable. It is only a trap with nested lists.',
   },
   {
     tag: 'code',
@@ -222,12 +255,14 @@ export const TYPED = [
       /^\[\[0\]\*colsfor(\w+)inrange\(rows\)\]$/,
       /^\[\[0for(\w+)inrange\(cols\)\]for(\w+)inrange\(rows\)\]$/,
     ],
+    why: '`[0] * cols` builds one row. The `for _ in range(rows)` part runs that expression `rows` times, making a fresh list each time. `[[0] * cols] * rows` would repeat one row, so every row would change together.',
   },
   {
     tag: 'code',
     code: "chars = ['c', 'a', 't']",
     q: 'Join the characters into one string.',
     a: "''.join(chars)",
+    why: '`sep.join(items)` glues strings with `sep` between them. An empty separator means no gap. It is O(total length).',
   },
   {
     tag: 'code',
@@ -235,6 +270,7 @@ export const TYPED = [
     q: 'Split the sentence into a list of words.',
     a: 's.split()',
     alt: ["s.split(' ')"],
+    why: 'With no argument, `split()` splits on any run of whitespace and drops empty pieces. `split(" ")` keeps empties between double spaces.',
   },
   {
     tag: 'code',
@@ -242,6 +278,7 @@ export const TYPED = [
     q: 'Position of lowercase letter `c` in the alphabet (a \u2192 0).',
     a: "ord(c) - ord('a')",
     alt: ['ord(c) - 97'],
+    why: '`ord` gives a character code, and letters are consecutive, so subtracting the code of `a` gives 0 to 25. Handy as an index into a 26-slot count array.',
   },
   {
     tag: 'code',
@@ -249,6 +286,7 @@ export const TYPED = [
     q: 'Turn index `i` (0\u201325) back into a lowercase letter.',
     a: "chr(i + ord('a'))",
     alt: ["chr(ord('a') + i)", 'chr(i + 97)', 'chr(97 + i)'],
+    why: '`chr` is the reverse of `ord`: it turns a code back into a character. Add the offset to the code of `a`.',
   },
   {
     tag: 'code',
@@ -256,6 +294,7 @@ export const TYPED = [
     q: 'List comprehension: the square of every number.',
     a: '[x * x for x in nums]',
     alt: [/^\[(\w+)\*\1for\1innums\]$/, /^\[(\w+)\*\*2for\1innums\]$/],
+    why: 'The shape is `[expression for item in iterable]`. The expression runs once per item and its results make the new list.',
   },
   {
     tag: 'code',
@@ -263,6 +302,7 @@ export const TYPED = [
     q: 'List comprehension: only the even numbers.',
     a: '[x for x in nums if x % 2 == 0]',
     alt: [/^\[(\w+)for\1innumsif\1%2==0\]$/, /^\[(\w+)for\1innumsifnot\1%2\]$/],
+    why: 'An `if` at the end filters: items that fail the test are skipped.',
   },
   {
     tag: 'code',
@@ -275,6 +315,7 @@ export const TYPED = [
       'list(chain(*grid))',
       'list(itertools.chain(*grid))',
     ],
+    why: 'The `for` clauses read in the same order as nested loops: outer first (`row in grid`), then inner (`x in row`).',
   },
   {
     tag: 'code',
@@ -282,6 +323,7 @@ export const TYPED = [
     q: 'Transpose `matrix` (rows become columns).',
     a: 'list(zip(*matrix))',
     alt: ['zip(*matrix)', /^\[list\((\w+)\)for\1inzip\(\*matrix\)\]$/],
+    why: '`*matrix` passes each row as its own argument, and `zip` then groups the first items, the second items, and so on. Each column comes back as a tuple.',
   },
   {
     tag: 'code',
@@ -289,12 +331,14 @@ export const TYPED = [
     q: 'Pair each element with the next: (1, 2), (2, 3), (3, 4).',
     a: 'zip(a, a[1:])',
     alt: ['list(zip(a, a[1:]))', 'pairwise(a)', 'itertools.pairwise(a)', 'list(pairwise(a))'],
+    why: '`a[1:]` is the list shifted by one, and `zip` stops at the shorter input, so you get neighbors. `itertools.pairwise` does the same without a copy.',
   },
   {
     tag: 'code',
     code: 'a = [1, 2, 3]\ni, j = 0, 2',
     q: 'Swap `a[i]` and `a[j]` in one line.',
     a: 'a[i], a[j] = a[j], a[i]',
+    why: 'The right side is evaluated into a tuple first, then assigned left to right, so neither value is lost.',
   },
   {
     tag: 'code',
@@ -302,6 +346,7 @@ export const TYPED = [
     q: 'Running prefix sums of `nums`, as a list.',
     a: 'list(accumulate(nums))',
     alt: ['list(itertools.accumulate(nums))'],
+    why: '`accumulate` yields running totals lazily: 1, 3, 6. Wrap it in `list` to get them all at once.',
   },
   {
     tag: 'code',
@@ -313,6 +358,7 @@ export const TYPED = [
       /^sum\(1for(\w+)insif\1in'aeiou'\)$/,
       /^len\(\[(\w+)for\1insif\1in'aeiou'\]\)$/,
     ],
+    why: '`c in "aeiou"` gives `True` or `False`, and booleans count as 1 and 0, so `sum` counts the matches.',
   },
   // ---- loops ----
   {
@@ -321,6 +367,7 @@ export const TYPED = [
     q: 'Write the `for` line that visits every other index of `a` (0, 2, 4, \u2026).',
     a: 'for i in range(0, len(a), 2):',
     alt: [/^for(\w+)inrange\(0,len\(a\),2\)$/],
+    why: '`range(start, stop, step)`: the stop is excluded, and a step of 2 skips every other index.',
   },
   {
     tag: 'loop',
@@ -328,6 +375,7 @@ export const TYPED = [
     q: 'Write the `for` line that counts `i` down from `n - 1` to 0.',
     a: 'for i in range(n - 1, -1, -1):',
     alt: [/^for(\w+)inrange\(n-1,-1,-1\)$/, /^for(\w+)inreversed\(range\(n\)\)$/],
+    why: 'Start at `n - 1` and step by -1. The stop is excluded, so it must be -1 to include 0.',
   },
   {
     tag: 'loop',
@@ -335,6 +383,7 @@ export const TYPED = [
     q: 'Write the `for` line that gets each index and value of `nums`.',
     a: 'for i, x in enumerate(nums):',
     alt: [/^for(\w+),(\w+)inenumerate\(nums\)$/],
+    why: '`enumerate` yields `(index, value)` tuples, and `i, x` unpacks each one.',
   },
   {
     tag: 'loop',
@@ -342,6 +391,7 @@ export const TYPED = [
     q: 'Write the `for` line over each key and value of `d`.',
     a: 'for k, v in d.items():',
     alt: [/^for(\w+),(\w+)ind\.items\(\)$/],
+    why: '`.items()` yields `(key, value)` pairs. Looping over `d` by itself gives only keys.',
   },
   {
     tag: 'loop',
@@ -349,12 +399,14 @@ export const TYPED = [
     q: 'Write the `for` line that walks `a` and `b` side by side.',
     a: 'for x, y in zip(a, b):',
     alt: [/^for(\w+),(\w+)inzip\(a,b\)$/],
+    why: '`zip` pairs items by position and stops at the shorter input.',
   },
   {
     tag: 'loop',
     code: 'n = 3',
     q: 'Write the `for` line that repeats `n` times when you don\u2019t need the counter.',
     a: 'for _ in range(n):',
+    why: '`_` is the usual name for a value you will not use. Python treats it like any other variable.',
   },
   {
     tag: 'loop',
@@ -362,6 +414,7 @@ export const TYPED = [
     q: 'Write the `for` line over the start of every chunk of size `k` (0, 2, 4).',
     a: 'for i in range(0, len(s), k):',
     alt: [/^for(\w+)inrange\(0,len\(s\),k\)$/],
+    why: 'Step by the chunk size, then `s[i:i + k]` is each chunk. A slice past the end simply stops early.',
   },
   {
     tag: 'loop',
@@ -372,6 +425,7 @@ export const TYPED = [
       /^for(\w+),(\w+)inedges:graph\[\1\]\.append\(\2\)graph\[\2\]\.append\(\1\)$/,
       /^for(\w+),(\w+)inedges:graph\[\2\]\.append\(\1\)graph\[\1\]\.append\(\2\)$/,
     ],
+    why: 'Undirected means the edge works both ways, so add each end to the other. `defaultdict(list)` creates the list the first time a node appears.',
   },
   {
     tag: 'loop',
@@ -382,13 +436,15 @@ export const TYPED = [
       /^for(\w+)innums:cnt\[\1\]=cnt\.get\(\1,0\)\+1$/,
       /^for(\w+)innums:cnt\[\1\]=1\+cnt\.get\(\1,0\)$/,
     ],
+    why: '`.get(x, 0)` reads the count, or 0 if `x` is new, which avoids a `KeyError`. `Counter(nums)` does all of this in one call.',
   },
   {
     tag: 'loop',
     code: 'q = deque([root])',
-    q: 'Two lines: BFS — keep going while `q` has nodes, taking the next one from the front.',
+    q: 'Two lines: BFS \u2014 keep going while `q` has nodes, taking the next one from the front.',
     a: 'while q:\n    node = q.popleft()',
     alt: [/^whileq:(\w+)=q\.popleft\(\)$/, /^whilelen\(q\)>0:(\w+)=q\.popleft\(\)$/],
+    why: 'An empty deque is falsy, so `while q` stops by itself. `popleft` is O(1) and gives first-in, first-out order.',
   },
   // ---- data structures ----
   {
@@ -397,12 +453,14 @@ export const TYPED = [
     q: 'Count how many times each character appears in `s`.',
     a: 'Counter(s)',
     alt: ['collections.Counter(s)'],
+    why: '`Counter(x)` loops over any iterable and returns a dict-like map of item → count: `{"a": 3, "n": 2, "b": 1}`. Missing keys read as 0, and it adds `most_common`.',
   },
   {
     tag: 'ds',
     code: 'cnt = Counter(nums)',
     q: 'The 2 most common elements from `cnt`.',
     a: 'cnt.most_common(2)',
+    why: 'Returns a list of `(item, count)` pairs, highest count first. With no argument it returns everything, sorted.',
   },
   {
     tag: 'ds',
@@ -410,12 +468,14 @@ export const TYPED = [
     q: 'Add 1 to `d[x]` even if `x` isn\u2019t a key yet (plain dict).',
     a: 'd[x] = d.get(x, 0) + 1',
     alt: ['d[x] = 1 + d.get(x, 0)'],
+    why: '`d[x] += 1` raises `KeyError` for a new key. `.get(x, 0)` returns 0 instead, so the first count becomes 1.',
   },
   {
     tag: 'ds',
     code: 'from collections import defaultdict',
     q: 'Make `groups` a dict whose missing keys start as empty lists.',
     a: 'groups = defaultdict(list)',
+    why: 'You pass the function to call, `list`, not a list. It runs whenever a missing key is read.',
   },
   {
     tag: 'ds',
@@ -423,6 +483,7 @@ export const TYPED = [
     q: 'A hashable anagram-group key for word `w`.',
     a: 'tuple(sorted(w))',
     alt: ["''.join(sorted(w))"],
+    why: 'Anagrams have the same sorted letters. `sorted` returns a list, which cannot be a dict key, so turn it into a tuple or a string.',
   },
   {
     tag: 'ds',
@@ -430,6 +491,7 @@ export const TYPED = [
     q: 'The elements in both sets.',
     a: 'a & b',
     alt: ['b & a', 'a.intersection(b)'],
+    why: '`&` is intersection. The others are `|` for union, `-` for difference and `^` for items in exactly one set.',
   },
   {
     tag: 'ds',
@@ -437,6 +499,7 @@ export const TYPED = [
     q: 'Push `x` onto the min-heap `h`.',
     a: 'heapq.heappush(h, x)',
     alt: ['heappush(h, x)'],
+    why: 'A heap is a plain list that `heapq` functions keep in heap order. A push sifts the item up in O(log n).',
   },
   {
     tag: 'ds',
@@ -444,6 +507,7 @@ export const TYPED = [
     q: 'Pop the smallest item from heap `h`.',
     a: 'heapq.heappop(h)',
     alt: ['heappop(h)'],
+    why: 'It removes `h[0]`, the smallest item, then restores heap order in O(log n).',
   },
   {
     tag: 'ds',
@@ -451,6 +515,7 @@ export const TYPED = [
     q: 'heapq only makes min-heaps. Push `x` so `h` works as a MAX-heap.',
     a: 'heapq.heappush(h, -x)',
     alt: ['heappush(h, -x)'],
+    why: 'Negating flips the order, so the largest value becomes the smallest. Negate again when you read it back: `-heappop(h)`.',
   },
   {
     tag: 'ds',
@@ -458,12 +523,14 @@ export const TYPED = [
     q: 'Turn `nums` into a heap in place.',
     a: 'heapq.heapify(nums)',
     alt: ['heapify(nums)'],
+    why: 'It rearranges the list in O(n), faster than n pushes. It returns `None`, and the list is heap-ordered, not fully sorted.',
   },
   {
     tag: 'ds',
     code: 'from collections import deque',
     q: 'Create a BFS queue `q` that starts with `root`.',
     a: 'q = deque([root])',
+    why: '`deque` takes an iterable, so wrap the single node in a list. `deque(root)` would try to loop over `root`.',
   },
   {
     tag: 'ds',
@@ -471,12 +538,14 @@ export const TYPED = [
     q: 'Take the next item from the front of `q`.',
     a: 'q.popleft()',
     alt: [/^(\w+)=q\.popleft\(\)$/],
+    why: 'O(1) from the front, unlike `list.pop(0)`, which shifts everything.',
   },
   {
     tag: 'ds',
     code: 'stack = [1, 2, 3]',
     q: 'Peek at the top of `stack` without popping.',
     a: 'stack[-1]',
+    why: 'A list works as a stack, with the top at the end. It raises `IndexError` if empty, so check `if stack` first.',
   },
   {
     tag: 'ds',
@@ -484,6 +553,7 @@ export const TYPED = [
     q: 'Leftmost index where `x` could be inserted to keep `a` sorted.',
     a: 'bisect.bisect_left(a, x)',
     alt: ['bisect_left(a, x)'],
+    why: 'Binary search for the first index with `a[i] >= x`, in O(log n). It only finds the position and does not insert.',
   },
   {
     tag: 'ds',
@@ -491,6 +561,7 @@ export const TYPED = [
     q: 'Positive infinity, e.g. to start a running minimum.',
     a: "float('inf')",
     alt: ['math.inf', "best = float('inf')", 'best = math.inf'],
+    why: 'It compares greater than every number, so the first real value always replaces it.',
   },
   {
     tag: 'ds',
@@ -498,6 +569,7 @@ export const TYPED = [
     q: 'Binary search: set `mid` to the midpoint of `lo` and `hi`.',
     a: 'mid = (lo + hi) // 2',
     alt: ['mid = lo + (hi - lo) // 2', 'mid = (lo + hi) >> 1'],
+    why: '`//` is floor division, so the result is a valid index. Python ints cannot overflow, so `lo + (hi - lo) // 2` is only needed in other languages.',
   },
   {
     tag: 'ds',
@@ -510,6 +582,7 @@ export const TYPED = [
       '@lru_cache(maxsize=None)',
       '@functools.lru_cache(None)',
     ],
+    why: 'It stores results by argument, so each distinct call runs once. The arguments must be hashable.',
   },
   {
     tag: 'ds',
@@ -517,6 +590,7 @@ export const TYPED = [
     q: 'Expression: is bit `i` of `n` set?',
     a: '(n >> i) & 1',
     alt: ['n >> i & 1', 'n & (1 << i)', 'n & 1 << i'],
+    why: '`n >> i` moves bit `i` to the lowest position, and `& 1` keeps just that bit.',
   },
   {
     tag: 'ds',
@@ -524,26 +598,9 @@ export const TYPED = [
     q: 'Clear the lowest set bit of `n`.',
     a: 'n & (n - 1)',
     alt: ['n &= n - 1', 'n = n & (n - 1)'],
+    why: 'Subtracting 1 flips the lowest 1 bit and every 0 below it, so `&` wipes that bit out.',
   },
 ].map((x) => ({
   ...x,
   kind: 'typed',
 }))
-
-export const TAG_LABEL = {
-  syntax: 'Syntax',
-  bigo: 'Big-O',
-  pseudo: 'Pseudocode',
-  code: 'Python \u00b7 Type it',
-  loop: 'Loops \u00b7 Type it',
-  ds: 'Data Structures \u00b7 Type it',
-}
-
-export const TAG_COLOR = {
-  syntax: 'var(--sky)',
-  bigo: 'var(--lav)',
-  pseudo: 'var(--pink)',
-  code: 'var(--sage-deep)',
-  loop: 'var(--coin-deep)',
-  ds: 'var(--shard-deep)',
-}

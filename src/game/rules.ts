@@ -12,6 +12,10 @@ export const expToNext = (level: number) => level * 10 // level 1->2 costs 10, 9
 // Shards for solving a problem (claimed from the Dashboard).
 export const SHARD_BY_DIFF: Record<Difficulty, number> = { Easy: 150, Medium: 300, Hard: 600 }
 
+// Active Recall: one perfect quiz's worth of Shards a day, so it tops up solving instead of replacing it.
+export const RECALL_SHARDS_PER_ANSWER = 50
+export const RECALL_DAILY_SHARDS = 1000
+
 // Summon costs and pity thresholds (draws since the last hit).
 export const SUMMON_COST = { single: 400, multi: 2000 }
 export const EPIC_PITY = 15

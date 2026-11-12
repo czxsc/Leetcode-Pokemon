@@ -1,34 +1,48 @@
+// Active Recall: pick a deck, answer 10 questions, read a short explanation after each one.
 import { useEffect, useRef, useState } from 'react'
 import { CodeBlock } from '../../components/CodeBlock'
 import { Creature } from '../../components/Creature'
 import { Shard } from '../../components/icons'
+import { todayLocal } from '../../game/dates'
+import { recallPayout, recallShardsLeft } from '../../game/recall'
+import { RECALL_DAILY_SHARDS, RECALL_SHARDS_PER_ANSWER } from '../../game/rules'
 import { store, useStore } from '../../state/store'
-import { TAG_COLOR, TAG_LABEL } from './questions'
+import { DECKS, deckQuestions, MIXED, TAG_COLOR, TAG_LABEL } from './questions'
 import { isRight, norm, pickQuiz } from './quiz'
+import { TwistAnswer } from './TwistAnswer'
 
-const REWARD_PER = 50 // Shards per correct answer
+// text with `code` spans
+function InlineCode({ text }) {
+  return text.split(/(`[^`]+`)/).map((part, i) =>
+    part.startsWith('`') ? (
+      <code key={i} className="recall-code">
+        {part.slice(1, -1)}
+      </code>
+    ) : (
+      part
+    ),
+  )
+}
 
-// prompt text with `code` spans
 function Prompt({ text }) {
   return (
-    <div
-      className="pixel-font"
-      style={{
-        fontSize: 18,
-        color: 'var(--ink)',
-        lineHeight: 1.5,
-        textAlign: 'center',
-      }}
-    >
-      {text.split(/(`[^`]+`)/).map((part, i) =>
-        part.startsWith('`') ? (
-          <code key={i} className="recall-code">
-            {part.slice(1, -1)}
-          </code>
-        ) : (
-          part
-        ),
-      )}
+    <div className="recall-prompt">
+      <InlineCode text={text} />
+    </div>
+  )
+}
+
+// pops up once a question is answered, right or wrong
+function AnswerBox({ title, answer, why }) {
+  return (
+    <div className="recall-answer">
+      <div className="recall-answer-head">
+        <span className="recall-answer-title">{title}</span>
+        {answer ? <span className="recall-answer-value">{answer}</span> : null}
+      </div>
+      <div className="recall-answer-text">
+        <InlineCode text={why} />
+      </div>
     </div>
   )
 }
@@ -151,7 +165,8 @@ function TypedAnswer({ cur, quiz, onCheck, onOverride }) {
                 border: '2px solid var(--lav-deep)',
                 textAlign: 'left',
                 display: 'inline-block',
-                minWidth: 320,
+                minWidth: 'min(320px, 100%)',
+                maxWidth: '100%',
               }}
             >
               <CodeBlock code={cur.a} language="python" />
@@ -172,6 +187,7 @@ function TypedAnswer({ cur, quiz, onCheck, onOverride }) {
               </button>
             </div>
           ) : null}
+          <AnswerBox title="Answer" why={cur.why} />
         </div>
       ) : null}
     </div>
@@ -179,15 +195,20 @@ function TypedAnswer({ cur, quiz, onCheck, onOverride }) {
 }
 
 export function Recall() {
+  const today = todayLocal()
   const st = useStore((s) => ({
     recallBest: s.recallBest,
+    shardsLeft: recallShardsLeft(s, today),
+    payoutFor: (correct) => recallPayout(s, correct, today),
   }))
+  const earnedToday = RECALL_DAILY_SHARDS - st.shardsLeft
   const [quiz, setQuiz] = useState(null) // {qs, i, score, picked, answered, correct, overridden}
   const [done, setDone] = useState(null)
+  const [deck, setDeck] = useState(MIXED.id)
   function start() {
     setDone(null)
     setQuiz({
-      qs: pickQuiz(),
+      qs: pickQuiz(deck),
       i: 0,
       score: 0,
       picked: null,
@@ -217,9 +238,7 @@ export function Recall() {
   }
   function next() {
     if (quiz.i + 1 >= quiz.qs.length) {
-      const reward = quiz.score * REWARD_PER
-      store.addShards(reward)
-      store.setRecallBest(quiz.score)
+      const reward = store.finishRecall(quiz.score)
       setDone({
         score: quiz.score,
         total: quiz.qs.length,
@@ -248,12 +267,14 @@ export function Recall() {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
+          // "safe" keeps the top reachable by scrolling on a short window
+          justifyContent: 'safe center',
+          overflowY: 'auto',
           gap: 20,
         }}
       >
         <div className="mon-bob">
-          <Creature species="psybloom" size={96} />
+          <Creature species="abra" size={96} />
         </div>
         <div
           className="pixel-font"
@@ -268,12 +289,12 @@ export function Recall() {
           style={{
             fontSize: 15,
             color: 'var(--ink-soft)',
-            maxWidth: 440,
+            maxWidth: 620,
             textAlign: 'center',
             lineHeight: 1.5,
           }}
         >
-          {'Practice some basic Python syntax, shortcuts and complexity refreshers. Earn '}
+          {'Drill your skills: earn '}
           {/* the number in Silkscreen: this body font draws a bold 5 like an S */}
           <b>
             <span
@@ -282,14 +303,54 @@ export function Recall() {
                 fontSize: 13,
               }}
             >
-              {REWARD_PER}
+              {RECALL_SHARDS_PER_ANSWER}
             </span>
             {' Shards'}
           </b>
-          {' per correct answer.'}
+          {' per correct answer, up to '}
+          <b>
+            <span
+              style={{
+                fontFamily: "'Silkscreen'",
+                fontSize: 13,
+              }}
+            >
+              {RECALL_DAILY_SHARDS.toLocaleString()}
+            </span>
+            {' a day'}
+          </b>
+          {'.'}
         </div>
-        {st.recallBest > 0 ? (
-          <div className="cur-badge">{'Best: ' + st.recallBest + '/10'}</div>
+        <div className="recall-decks">
+          {[MIXED, ...DECKS].map((d) => (
+            <button
+              key={d.id}
+              className={'recall-deck' + (deck === d.id ? ' on' : '')}
+              aria-pressed={deck === d.id}
+              onClick={() => setDeck(d.id)}
+            >
+              <span className="recall-deck-name">{d.label}</span>
+              <span className="recall-deck-blurb">{d.blurb}</span>
+              {d.tags ? (
+                <span className="recall-deck-count">{deckQuestions(d).length + ' questions'}</span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+        <div className="recall-badges">
+          {st.recallBest > 0 ? (
+            <div className="cur-badge recall-badge">{'Best: ' + st.recallBest + '/10'}</div>
+          ) : null}
+          <div className="cur-badge recall-badge">
+            <Shard size={14} />
+            {'Today: ' + earnedToday.toLocaleString() + '/' + RECALL_DAILY_SHARDS.toLocaleString()}
+          </div>
+        </div>
+        {st.shardsLeft === 0 ? (
+          <div className="recall-limit">
+            Daily Shards all earned. Quizzes are still open for practice, and Shards refill
+            tomorrow.
+          </div>
         ) : null}
         <button
           className="btn lav"
@@ -308,7 +369,7 @@ export function Recall() {
   // ---------- results ----------
   if (done) {
     const pct = done.score / done.total
-    const mon = pct >= 0.8 ? 'aurigon' : pct >= 0.5 ? 'voltace' : 'sproutle'
+    const mon = pct >= 0.8 ? 'alakazam' : pct >= 0.5 ? 'kadabra' : 'abra'
     return (
       <div
         className="panel cream"
@@ -317,7 +378,9 @@ export function Recall() {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
+          // "safe" keeps the top reachable by scrolling on a short window
+          justifyContent: 'safe center',
+          overflowY: 'auto',
           gap: 18,
         }}
       >
@@ -361,12 +424,24 @@ export function Recall() {
             {'+' + done.reward}
           </span>
         </div>
+        {st.shardsLeft === 0 ? (
+          <div className="recall-limit">
+            Daily Shards all earned. Keep practicing, and Shards refill tomorrow.
+          </div>
+        ) : (
+          <div className="cur-badge recall-badge">
+            {'Today: ' + earnedToday.toLocaleString() + '/' + RECALL_DAILY_SHARDS.toLocaleString()}
+          </div>
+        )}
         <div
           style={{
             display: 'flex',
             gap: 10,
           }}
         >
+          <button className="btn" onClick={() => setDone(null)}>
+            Change Deck
+          </button>
           <button className="btn lav" onClick={start}>
             Again
           </button>
@@ -429,7 +504,9 @@ export function Recall() {
         >
           {quiz.i + 1 + '/' + quiz.qs.length}
         </span>
+        {/* what finishing now would pay; MAX says more right answers won't add to it */}
         <span
+          title={st.shardsLeft === 0 ? 'Daily Shards all earned' : undefined}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -440,121 +517,129 @@ export function Recall() {
           }}
         >
           <Shard size={13} />
-          {quiz.score * REWARD_PER}
+          {st.payoutFor(quiz.score) + (st.payoutFor(quiz.score) >= st.shardsLeft ? ' MAX' : '')}
         </span>
       </div>
       {/* question */}
       <div
-        className="panel cream"
+        className="panel cream recall-body"
         style={{
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
+          // "safe" keeps the top reachable by scrolling when a long question overflows
+          justifyContent: 'safe center',
           gap: 18,
-          padding: '28px 32px',
         }}
       >
-        {cur.kind === 'typed' ? (
-          <div
-            className="code-wrap"
-            style={{
-              borderRadius: 10,
-              border: '2px solid var(--lav-deep)',
-              maxWidth: 640,
-              width: '100%',
-              margin: '0 auto',
-            }}
-          >
-            <CodeBlock code={cur.code} language="python" />
-          </div>
-        ) : null}
-        <Prompt text={cur.q} />
-        {cur.kind === 'typed' ? (
-          <TypedAnswer
-            key={quiz.i}
-            cur={cur}
-            quiz={quiz}
-            onCheck={(text) => answer(isRight(cur, text), null)}
-            onOverride={override}
-          />
-        ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 12,
-              maxWidth: 640,
-              width: '100%',
-              margin: '0 auto',
-            }}
-          >
-            {cur.o.map((opt, idx) => {
-              let bg = 'var(--card-2)',
-                bd = 'var(--card-line)',
-                col = 'var(--ink)'
-              if (quiz.answered) {
-                if (idx === cur.a) {
-                  bg = 'var(--sage-lite)'
-                  bd = 'var(--sage-deep)'
-                } else if (idx === quiz.picked) {
-                  bg = '#f4d2cd'
-                  bd = 'var(--hard)'
-                }
-              }
-              return (
-                <button
-                  key={idx}
-                  disabled={quiz.answered}
-                  onClick={() => answer(idx === cur.a, idx)}
-                  className={!quiz.answered ? 'quiz-opt' : ''}
-                  style={{
-                    background: bg,
-                    border: '3px solid ' + bd,
-                    borderRadius: 12,
-                    padding: '16px 14px',
-                    fontFamily: "'VT323', monospace",
-                    fontSize: 19,
-                    color: col,
-                    textAlign: 'center',
-                    cursor: quiz.answered ? 'default' : 'pointer',
-                    boxShadow: 'inset 0 2px 0 rgba(255,255,255,.5)',
-                  }}
-                >
-                  {opt}
-                </button>
-              )
-            })}
-          </div>
-        )}
-        {cur.kind === 'choice' ? (
-          quiz.answered ? (
-            <div
-              style={{
-                textAlign: 'center',
-                minHeight: 24,
-              }}
-            >
-              <span
+        {cur.kind === 'twist' ? (
+          <>
+            <div className="recall-from">{'Starting from: ' + cur.from}</div>
+            <Prompt text={cur.q} />
+            {/* above the diffs, which can be long enough to scroll */}
+            {quiz.answered ? <AnswerBox title="Why" why={cur.why} /> : null}
+            <TwistAnswer
+              key={quiz.i}
+              cur={cur}
+              quiz={quiz}
+              onCheck={(text) => answer(isRight(cur, text), null)}
+              onOverride={override}
+            />
+          </>
+        ) : cur.kind === 'typed' ? (
+          <>
+            {cur.code ? (
+              <div
+                className="code-wrap"
                 style={{
-                  fontFamily: "'Silkscreen'",
-                  fontSize: 12,
-                  color: quiz.correct ? 'var(--sage-deep)' : 'var(--hard)',
+                  borderRadius: 10,
+                  border: '2px solid var(--lav-deep)',
+                  maxWidth: 640,
+                  width: '100%',
+                  margin: '0 auto',
                 }}
               >
-                {quiz.correct ? '\u2714 Correct!' : '\u2716 Answer: ' + cur.o[cur.a]}
-              </span>
-            </div>
-          ) : (
-            <div
-              style={{
-                minHeight: 24,
-              }}
+                <CodeBlock code={cur.code} language="python" />
+              </div>
+            ) : null}
+            <Prompt text={cur.q} />
+            <TypedAnswer
+              key={quiz.i}
+              cur={cur}
+              quiz={quiz}
+              onCheck={(text) => answer(isRight(cur, text), null)}
+              onOverride={override}
             />
-          )
-        ) : null}
+          </>
+        ) : (
+          <div className={cur.code ? 'recall-split' : 'recall-stack'}>
+            {cur.code ? (
+              <div className="code-wrap recall-split-code">
+                <CodeBlock code={cur.code} language="python" />
+              </div>
+            ) : null}
+            <div className="recall-split-side">
+              <Prompt text={cur.q} />
+              <div
+                className="recall-options"
+                style={{
+                  // long sentences read better stacked than squeezed into two columns
+                  gridTemplateColumns: cur.o.some((opt) => opt.length > 28) ? '1fr' : '1fr 1fr',
+                }}
+              >
+                {cur.o.map((opt, idx) => {
+                  let bg = 'var(--card-2)',
+                    bd = 'var(--card-line)',
+                    col = 'var(--ink)'
+                  if (quiz.answered) {
+                    if (idx === cur.a) {
+                      bg = 'var(--sage-lite)'
+                      bd = 'var(--sage-deep)'
+                    } else if (idx === quiz.picked) {
+                      bg = '#f4d2cd'
+                      bd = 'var(--hard)'
+                    }
+                  }
+                  return (
+                    <button
+                      key={idx}
+                      disabled={quiz.answered}
+                      onClick={() => answer(idx === cur.a, idx)}
+                      className={!quiz.answered ? 'quiz-opt' : ''}
+                      style={{
+                        background: bg,
+                        border: '3px solid ' + bd,
+                        borderRadius: 12,
+                        padding: '12px 14px',
+                        fontFamily: "'VT323', monospace",
+                        fontSize: 19,
+                        color: col,
+                        textAlign: 'center',
+                        cursor: quiz.answered ? 'default' : 'pointer',
+                        boxShadow: 'inset 0 2px 0 rgba(255,255,255,.5)',
+                      }}
+                    >
+                      {opt}
+                    </button>
+                  )
+                })}
+              </div>
+              {quiz.answered ? (
+                <>
+                  <div
+                    className="recall-verdict"
+                    style={{ color: quiz.correct ? 'var(--sage-deep)' : 'var(--hard)' }}
+                  >
+                    {quiz.correct ? '\u2714 Correct!' : '\u2716 Not quite'}
+                  </div>
+                  <AnswerBox title="Answer" answer={cur.o[cur.a]} why={cur.why} />
+                </>
+              ) : null}
+            </div>
+          </div>
+        )}
       </div>
       {/* footer */}
       <div

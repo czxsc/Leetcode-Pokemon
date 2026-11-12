@@ -62,9 +62,14 @@ describe('state documents', () => {
   })
 
   it('resets the daily counters on a new day', () => {
-    const s = game({ quests: { login: 1 }, recallToday: true })
+    const s = game({ quests: { login: 1 }, recallToday: true, recallShardsToday: 500 })
     const next = rollDailyState(s, '2026-10-26')
-    expect(next).toMatchObject({ quests: {}, recallToday: false, lastDay: '2026-10-26' })
+    expect(next).toMatchObject({
+      quests: {},
+      recallToday: false,
+      recallShardsToday: 0,
+      lastDay: '2026-10-26',
+    })
     expect(rollDailyState(s, TODAY)).toBe(s)
   })
 

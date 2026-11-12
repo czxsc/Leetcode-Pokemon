@@ -68,6 +68,7 @@ export function seedProgress(today: string): Progress {
     quests: {},
     recallBest: 0,
     recallToday: false,
+    recallShardsToday: 0,
     pity: 0,
     epicPity: 0,
     totalPulls: 0,
@@ -95,6 +96,7 @@ export function normalizeProgress(saved: Saved, today: string): Progress {
       studyToday: count(meadow.studyToday),
       studyTotal: count(meadow.studyTotal),
     },
+    recallShardsToday: count(saved.recallShardsToday),
     // saves from before onboarding existed already have a team, so they skip it
     onboarded:
       'onboarded' in saved
@@ -175,6 +177,7 @@ export function rollDailyState(state: GameState, today: string): GameState {
     ...state,
     quests: {},
     recallToday: false,
+    recallShardsToday: 0,
     meadow: { ...state.meadow, coinsToday: 0, studyToday: 0 },
     lastDay: today,
   }
