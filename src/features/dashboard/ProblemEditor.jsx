@@ -59,9 +59,9 @@ export function ProblemEditor({ problem, defaultTag, onClose, onSaved }) {
     if (!tags.includes(id)) setTags([...tags, id])
     setTagDraft('')
   }
-  // Fill in title, difficulty and tags from a LeetCode link. The local
-  // server does the asking (LeetCode blocks calls from other pages), so
-  // it only works in the full version.
+  // Fill in title, difficulty and tags from a LeetCode link. PokéLeet's
+  // server does the asking (LeetCode blocks calls from other pages), so it
+  // works in the local and cloud apps but not the browser-only demo.
   async function find(link) {
     const leetSlug = Catalog.leetcodeSlug(link)
     if (!leetSlug) {
@@ -85,24 +85,9 @@ export function ProblemEditor({ problem, defaultTag, onClose, onSaved }) {
     })
     let q
     try {
-      const res = await fetch('/api/leetcode?slug=' + encodeURIComponent(leetSlug), {
-        headers: {
-          Accept: 'application/json',
-        },
-      })
-      const body = await res.json().catch(() => null)
-      if (!res.ok || !body || !body.problem)
-        throw new Error((body && body.error) || `Lookup failed (HTTP ${res.status}).`)
-      q = body.problem
+      q = await store.lookupProblem(leetSlug)
     } catch (err) {
-      if (seq === lookupSeq.current)
-        setLookup({
-          ok: false,
-          text:
-            err instanceof TypeError
-              ? 'Couldn’t reach the PokéLeet server — is it still running?'
-              : err.message,
-        })
+      if (seq === lookupSeq.current) setLookup({ ok: false, text: err.message })
       return
     }
     if (seq !== lookupSeq.current) return

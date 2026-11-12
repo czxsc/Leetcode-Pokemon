@@ -17,6 +17,8 @@
    this browser's localStorage.
 ===================================================================== */
 
+import type { LeetCodeProblem } from '../../api/src/leetcode'
+
 export type DocName = 'progress' | 'library'
 export type Docs = Record<DocName, object>
 export interface SavedDoc {
@@ -221,7 +223,26 @@ function serverBackend(auth: ServerAuth | null) {
     }
   }
 
-  return { fetchData, write, deleteAccount }
+  // LeetCode doesn't answer other web pages, so the server asks it for us.
+  async function lookupProblem(slug: string) {
+    let res
+    try {
+      res = await fetch('/api/leetcode?slug=' + encodeURIComponent(slug), {
+        headers: headers({ Accept: 'application/json' }),
+      })
+    } catch {
+      throw new Error('Can’t reach the PokéLeet server. Check your connection and try again.')
+    }
+    const out = await res.json().catch(() => ({}))
+    if (res.status === 401) {
+      auth?.renew()
+      throw new Error(SESSION_MESSAGE)
+    }
+    if (!res.ok || !out.problem) throw new Error(out.error || `Lookup failed (HTTP ${res.status}).`)
+    return out.problem as LeetCodeProblem
+  }
+
+  return { fetchData, write, deleteAccount, lookupProblem }
 }
 
 function browserBackend(): Backend {
@@ -537,6 +558,11 @@ export async function openPersistence({
     onResume(fn: () => void) {
       resumeListeners.add(fn)
       return () => resumeListeners.delete(fn)
+    },
+    // A problem's details from LeetCode (title, difficulty, tags), given its slug.
+    async lookupProblem(slug: string) {
+      if (!server) throw new Error('Looking problems up needs the PokéLeet server.')
+      return server.lookupProblem(slug)
     },
     // Cloud only: deletes the account and everything saved for it, then signs out.
     async deleteAccount() {

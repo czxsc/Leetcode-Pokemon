@@ -123,6 +123,8 @@ export const store = {
   onResume: (fn: () => void) => persistence.onResume(fn),
   // cloud only: deletes the account and its data, then signs out
   deleteAccount: () => persistence.deleteAccount(),
+  // a problem's details from LeetCode, asked through the server (signed in, on the cloud app)
+  lookupProblem: (slug: string) => persistence.lookupProblem(slug),
 
   // ---- collection ----
   addShards: (n: number) => set(Collection.addShards(state, n)),
