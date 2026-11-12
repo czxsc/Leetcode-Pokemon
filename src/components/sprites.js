@@ -1,4 +1,4 @@
-// Sprite images (pokemondb.net) and the type colors used when one fails to load.
+// Sprite images (pokemondb.net, Pokémon Showdown) and the type colors used when one fails to load.
 export const TYPE_COLOR = {
   normal: '#d6c5a0',
   fire: '#efa06a',
@@ -22,19 +22,25 @@ export const TYPE_COLOR = {
 
 // ---------------- sprite urls ----------------
 const BASE = 'https://img.pokemondb.net/sprites'
+const SHOWDOWN = 'https://play.pokemonshowdown.com/sprites'
+
+// pokemondb has no pixel art for many Gen 6+ species, any Gen 6+ shiny, or the forms, so those
+// come from Showdown's gen5 set. Its slugs differ: tapu-koko is tapukoko, -mega-x is -megax.
+function showdownUrl(slug, shiny) {
+  return `${SHOWDOWN}/gen5${shiny ? '-shiny' : ''}/${slug}.png`
+}
 
 export function spriteUrl(sp, opts) {
   opts = opts || {}
-  const sh = opts.shiny ? 'shiny' : 'normal'
   if (opts.form === 'mega') {
     const m = typeof sp.mega === 'string' ? sp.mega : sp.id + '-mega'
-    return `${BASE}/omega-ruby-alpha-sapphire/dex/${sh}/${m}.png`
+    return showdownUrl(m.replace(/-mega-([xy])$/, '-mega$1'), opts.shiny)
   }
-  if (opts.form === 'gmax') {
-    return `${BASE}/sword-shield/${sh}/${sp.id}-gigantamax.png`
+  if (opts.form === 'gmax') return showdownUrl(`${sp.id}-gmax`, opts.shiny)
+  if (sp.gen <= 5) {
+    return `${BASE}/black-white/anim/${opts.shiny ? 'shiny' : 'normal'}/${sp.id}.gif`
   }
-  if (sp.gen <= 5) return `${BASE}/black-white/anim/${sh}/${sp.id}.gif`
-  return `${BASE}/sword-shield/${sh}/${sp.id}.png`
+  return showdownUrl(sp.id.replace(/-/g, ''), opts.shiny)
 }
 
 export function homeUrl(sp, shiny) {

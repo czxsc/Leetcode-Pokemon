@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { byId } from '../game/species'
 import { PixelSparkle } from './PixelSparkle'
+import { spriteZoom } from './sprite-zoom'
 import { homeUrl, spriteUrl, TYPE_COLOR } from './sprites'
 
 // A Pokémon sprite. Falls back from the animated sprite to a static one,
@@ -50,25 +51,12 @@ export function Creature(props) {
           form,
         })
       : homeUrl(sp, shiny)
-  // fill: scale the sprite up to the box. Gen 6+ sprites also get zoomed, since they sit small in the
-  // middle of a mostly empty 120x112 canvas (Gen 1-5 gifs are cropped tight).
+  // fill: scale the sprite up to the box. Gen 6+ sprites are also zoomed to make up for their padding.
   const padded = sp.gen > 5 && !form && stage === 0
-  const fit = props.fill
-    ? {
-        width: '100%',
-        height: '100%',
-        ...(padded
-          ? {
-              transform: 'scale(1.8)',
-              transformOrigin: '50% 68%',
-              pointerEvents: 'none',
-            }
-          : {}),
-      }
-    : {
-        maxWidth: '100%',
-        maxHeight: '100%',
-      }
+  const fit = {
+    ...(props.fill ? { width: '100%', height: '100%' } : { maxWidth: '100%', maxHeight: '100%' }),
+    ...(padded ? { transform: `scale(${spriteZoom(sp)})`, pointerEvents: 'none' } : {}),
+  }
   return (
     <div className={(bob ? 'mon-bob ' : '') + className} style={box}>
       {shiny ? (
@@ -86,8 +74,7 @@ export function Creature(props) {
         style={{
           ...fit,
           objectFit: 'contain',
-          imageRendering:
-            (sp.gen <= 5 || (props.fill && stage === 0)) && !form ? 'pixelated' : 'auto',
+          imageRendering: stage === 0 ? 'pixelated' : 'auto',
         }}
         alt={sp.name}
         draggable={false}
