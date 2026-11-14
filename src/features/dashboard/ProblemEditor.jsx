@@ -24,10 +24,11 @@ export function ProblemEditor({ problem, defaultTag, onClose, onSaved }) {
   const [code, setCode] = useState(start.code)
   const [lookup, setLookup] = useState(null) // { busy } | { ok, text } while finding on LeetCode
   const lookupSeq = useRef(0)
-  // filling this in takes longer than the cloud database takes to wake up, so start it now
+  // A save is coming: the cloud database can wake up from a pause while this is filled in. On
+  // every edit too (at most once a minute), as it pauses again after 5 idle minutes.
   useEffect(() => {
     store.prepareToSave()
-  }, [])
+  }, [title, difficulty, tags, language, url, code])
   const allTags = store.tags().concat(newTags)
   const slug = Catalog.slugify(title)
   const clash = slug

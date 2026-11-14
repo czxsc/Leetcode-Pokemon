@@ -203,7 +203,9 @@ function serverBackend(auth: ServerAuth | null) {
       })
     }
     if (res.status === 401) throw Object.assign(new Error(SESSION_MESSAGE), { unauthorized: true })
-    if (res.status === 503) {
+    // Only the API's own 503 means its database is resuming; one from CloudFront or API
+    // Gateway (no `api` in the body) is an outage, and backs off like any other failure.
+    if (res.status === 503 && out.api === 'pokeleet') {
       throw Object.assign(new Error(out.error || `HTTP ${res.status}`), { waking: true })
     }
     if (!res.ok) throw new Error(out.error || `HTTP ${res.status}`)
@@ -463,8 +465,10 @@ export async function openPersistence({
       }
       inflight = null
       if (retry) {
+        // Waking retries resend the same data every 1.5s, already stashed by the first failure
+        // (newer changes are stashed as they come, by schedule); don't copy it out again each time.
+        if (!waking || !failing) saver.stash()
         failing = true
-        saver.stash()
         const delay = waking ? WAKE_RETRY_MS : retryDelay
         dueAt = Date.now() + delay
         timer = setTimeout(run, delay)
