@@ -10,7 +10,8 @@
    - until the server confirms a save, the data is also stashed in this
      browser and restored on the next visit if it never arrived (tab
      closed while the server was stopped, a very large final save...);
-   - failed saves are retried until the server is reachable again;
+   - failed saves are retried until the server is reachable again; while
+     the cloud database resumes from a pause, quietly and every ~1.5s;
    - when a tab comes back into view it first picks up anything saved
      from another tab or browser, so switching between them is safe.
    The demo build (GitHub Pages) has no server, so everything lives in
@@ -49,7 +50,12 @@ interface Backend {
   write(name: DocName, json: string, rev: number, keepalive: boolean): Promise<WriteResult>
 }
 
-type SaveError = Error & { offline?: boolean; conflict?: boolean; unauthorized?: boolean }
+type SaveError = Error & {
+  offline?: boolean
+  conflict?: boolean
+  unauthorized?: boolean
+  waking?: boolean
+}
 
 const DOCS: DocName[] = ['progress', 'library']
 const SAVE_DELAY: Record<DocName, number> = { progress: 1500, library: 250 }
@@ -58,6 +64,7 @@ const MAX_RETRY_DELAY = 15000
 const KEEPALIVE_MAX_BYTES = 60000 // browsers cap keepalive request bodies at 64KB
 const WAKE_RETRY_MS = 1500 // the cloud database answers 503 while it resumes from a pause
 const WAKE_TIMEOUT_MS = 90000
+const WAKE_EVERY_MS = 60000 // asking it to wake up ahead of a save, at most this often
 const DEMO_PREFIX = 'pokeleet:demo:'
 const STASH_PREFIX = 'pokeleet:unsaved:'
 const OFFLINE_MESSAGE =
@@ -196,8 +203,16 @@ function serverBackend(auth: ServerAuth | null) {
       })
     }
     if (res.status === 401) throw Object.assign(new Error(SESSION_MESSAGE), { unauthorized: true })
+    if (res.status === 503) {
+      throw Object.assign(new Error(out.error || `HTTP ${res.status}`), { waking: true })
+    }
     if (!res.ok) throw new Error(out.error || `HTTP ${res.status}`)
     return out as WriteResult
+  }
+
+  // Starts a paused database resuming. Nothing waits for the answer: trying is what wakes it.
+  function wake() {
+    fetch('/api/wake', { method: 'POST', headers: headers() }).catch(() => {})
   }
 
   async function deleteAccount() {
@@ -242,7 +257,7 @@ function serverBackend(auth: ServerAuth | null) {
     return out.problem as LeetCodeProblem
   }
 
-  return { fetchData, write, deleteAccount, lookupProblem }
+  return { fetchData, write, wake, deleteAccount, lookupProblem }
 }
 
 function browserBackend(): Backend {
@@ -342,6 +357,7 @@ export async function openPersistence({
     let inflight: { data: object; hash: string } | null = null // being written
     let unconfirmed: string | null = null // hash of a write whose response never arrived
     let failing = false
+    let wakingSince: number | null = null // when the database first said it was waking up
     let timer: ReturnType<typeof setTimeout> | null = null
     let dueAt = 0
     let retryDelay = FIRST_RETRY_DELAY
@@ -404,6 +420,7 @@ export async function openPersistence({
       inflight = sent
       pending = null
       let retry = false
+      let waking = false
       try {
         const out = await backend.write(name, JSON.stringify(data), saver.rev, keepalive)
         saver.rev = out.rev
@@ -411,6 +428,7 @@ export async function openPersistence({
         status.savedAt = out.savedAt || new Date().toISOString()
         unconfirmed = null
         failing = false
+        wakingSince = null
         retryDelay = FIRST_RETRY_DELAY
       } catch (e) {
         const err = e as SaveError
@@ -424,9 +442,16 @@ export async function openPersistence({
           saver.conflict = true
         } else {
           retry = true
+          // A paused cloud database takes seconds to resume, and that isn't a failure: try
+          // again soon and say nothing, unless it takes far longer than that.
+          if (err.waking) {
+            wakingSince ??= Date.now()
+            waking = Date.now() - wakingSince < WAKE_TIMEOUT_MS
+          } else wakingSince = null
           if (err.offline) unconfirmed = sent.hash
-          saver.error =
-            err.offline || err.unauthorized
+          saver.error = waking
+            ? null
+            : err.offline || err.unauthorized
               ? err.message
               : `Couldn’t save your ${what} (${err.message}). Retrying…`
           if (pending === null) pending = sent.data
@@ -440,9 +465,10 @@ export async function openPersistence({
       if (retry) {
         failing = true
         saver.stash()
-        dueAt = Date.now() + retryDelay
-        timer = setTimeout(run, retryDelay)
-        retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY)
+        const delay = waking ? WAKE_RETRY_MS : retryDelay
+        dueAt = Date.now() + delay
+        timer = setTimeout(run, delay)
+        if (!waking) retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY)
       } else {
         if (pending === null && remote && !saver.conflict) local.remove(stashKey(name))
         arm(SAVE_DELAY[name])
@@ -537,6 +563,8 @@ export async function openPersistence({
     event.returnValue = '' // older browsers only ask when this is set
   })
 
+  let wokeAt = 0
+
   return {
     mode: backend.mode,
     initial,
@@ -558,6 +586,14 @@ export async function openPersistence({
     onResume(fn: () => void) {
       resumeListeners.add(fn)
       return () => resumeListeners.delete(fn)
+    },
+    // A save is coming (e.g. a problem is being written up): the cloud database, which pauses
+    // after 5 idle minutes, can resume while that happens instead of once the save is sent.
+    wake() {
+      if (!server || backend.mode !== 'cloud' || closed || Date.now() - wokeAt < WAKE_EVERY_MS)
+        return
+      wokeAt = Date.now()
+      server.wake()
     },
     // A problem's details from LeetCode (title, difficulty, tags), given its slug.
     async lookupProblem(slug: string) {

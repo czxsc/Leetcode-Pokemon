@@ -163,6 +163,7 @@ describe('postgres over a connection', () => {
   it('answers 503 while the database is out of reach, so the app retries', async () => {
     const store = postgresLibraryStore({ host: '127.0.0.1', port: 9, connectionTimeoutMillis: 500 })
     await expect(store.load('u')).rejects.toMatchObject({ status: 503 })
+    await expect(store.wake!()).rejects.toMatchObject({ status: 503 })
   })
 })
 

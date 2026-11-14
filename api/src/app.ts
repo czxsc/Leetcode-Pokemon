@@ -7,6 +7,7 @@
      PUT /api/progress         <- { rev, data }  -> { rev, savedAt }
      PUT /api/library          <- { rev, data }  -> { rev, savedAt, warning }
      GET /api/leetcode?slug=   -> { problem }    (title, difficulty, tags...)
+     POST /api/wake            -> { awake }      (resumes a paused database ahead of a save)
      DELETE /api/account       -> { deleted }    (cloud only: the account and its data)
 
    Every JSON response carries `api: 'pokeleet'`, so the web app can tell
@@ -100,6 +101,12 @@ export function createApp(options: AppOptions) {
   )
 
   app.get('/leetcode', async (c) => send(c, { problem: await lookup(c.req.query('slug') || '') }))
+
+  // 503 while still waking, like any other route
+  app.post('/wake', async (c) => {
+    await Promise.all([stores.progress.wake?.(), stores.library.wake?.()])
+    return send(c, { awake: true })
+  })
 
   if ('deleteSignIn' in options) {
     const { stores, deleteSignIn } = options

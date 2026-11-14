@@ -122,6 +122,18 @@ describe('API', () => {
     expect((await app.request('/api/data')).status).toBe(503)
   })
 
+  it('wakes the stores that pause, ahead of a save', async () => {
+    const { app, stores } = setup()
+    const wake = (stores.library.wake = vi.fn(async () => {}))
+    const res = await app.request('/api/wake', { method: 'POST' })
+    expect(await res.json()).toMatchObject({ api: 'pokeleet', awake: true })
+    expect(wake).toHaveBeenCalledOnce()
+    // stores without a wake() are always ready
+    expect((await setup().app.request('/api/wake', { method: 'POST' })).status).toBe(200)
+    wake.mockRejectedValueOnce(new UnavailableError())
+    expect((await app.request('/api/wake', { method: 'POST' })).status).toBe(503)
+  })
+
   describe('deleting an account', () => {
     function cloud(user: string) {
       const stores = { progress: memoryStore<object>(), library: memoryStore<Library>() }

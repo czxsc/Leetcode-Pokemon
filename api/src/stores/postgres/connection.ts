@@ -75,5 +75,7 @@ export function postgresLibraryStore(config: pg.ClientConfig): ErasableStore<Lib
     load: (userId) => run((store) => store.load(userId)),
     save: (userId, data, baseRev) => run((store) => store.save(userId, data, baseRev)),
     remove: (userId) => run((store) => store.remove(userId)),
+    // trying to connect is what resumes a paused database
+    wake: () => withConnection(config, async () => {}),
   }
 }

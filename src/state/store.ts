@@ -126,6 +126,8 @@ export const store = {
   deleteAccount: () => persistence.deleteAccount(),
   // a problem's details from LeetCode, asked through the server (signed in, on the cloud app)
   lookupProblem: (slug: string) => persistence.lookupProblem(slug),
+  // a save is coming: let the cloud database wake up from a pause meanwhile
+  prepareToSave: () => persistence.wake(),
 
   // ---- collection ----
   addShards: (n: number) => set(Collection.addShards(state, n)),

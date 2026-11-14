@@ -21,6 +21,9 @@ export interface DocumentStore<T> {
   load(userId: string): Promise<StoredDoc<T> | null>
   // Throws ConflictError unless the stored revision is still `baseRev` (0 = not saved yet).
   save(userId: string, data: T, baseRev: number): Promise<SaveResult>
+  // A store whose database pauses when idle (the cloud's Aurora) starts it resuming, so a save
+  // that follows soon doesn't wait. Throws UnavailableError if it isn't ready yet.
+  wake?(): Promise<void>
 }
 
 // A store that can also forget a user: the cloud's, for deleting accounts.

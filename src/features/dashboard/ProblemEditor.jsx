@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as Catalog from '../../../shared/catalog'
 import { store, useStore } from '../../state/store'
 import { hintStyle } from './shared'
@@ -24,6 +24,10 @@ export function ProblemEditor({ problem, defaultTag, onClose, onSaved }) {
   const [code, setCode] = useState(start.code)
   const [lookup, setLookup] = useState(null) // { busy } | { ok, text } while finding on LeetCode
   const lookupSeq = useRef(0)
+  // filling this in takes longer than the cloud database takes to wake up, so start it now
+  useEffect(() => {
+    store.prepareToSave()
+  }, [])
   const allTags = store.tags().concat(newTags)
   const slug = Catalog.slugify(title)
   const clash = slug
