@@ -35,8 +35,7 @@ export const BOOSTED_WEIGHTS: Record<Rarity, number> = {
 }
 export const SHINY_CHANCE = 0.05 // summon shiny odds
 export const FORM_BONUS: Record<Form, number> = { mega: 1.6, gmax: 1.9 } // power multiplier when transformed
-export const EVO_COPIES = 3 // dupes needed to evolve
-export const DUP_LEVELS = 5 // levels for a non-evolvable dupe
+export const DUP_LEVELS = 10 // levels a duplicate gives the friend it matches
 
 export const SPECIES: Species[] = DEX.map((d) => ({
   id: d[0],
@@ -111,6 +110,21 @@ export function evoOptions(sp: Species | undefined): string[] {
   if (!sp) return []
   if (sp.id === 'eevee') return EEVEE_EVOS.slice()
   return sp.evo ? [sp.evo] : []
+}
+
+// Every species evolves from at most one other, so each belongs to a single line.
+const PARENT = new Map(SPECIES.flatMap((s) => evoOptions(s).map((e) => [e, s.id] as const)))
+function evolutionsAfter(id: string): number {
+  const next = evoOptions(BY_ID.get(id))
+  return next.length ? 1 + Math.max(...next.map(evolutionsAfter)) : 0
+}
+
+// Where a species sits in its evolution line: `stage` evolutions in (0 for the first form), out
+// of `evolutions` in the whole line (Bulbasaur, Ivysaur and Venusaur all have 2).
+export function evolutionLine(sp: Species): { stage: number; evolutions: number } {
+  let stage = 0
+  for (let id = PARENT.get(sp.id); id; id = PARENT.get(id)) stage++
+  return { stage, evolutions: stage + evolutionsAfter(sp.id) }
 }
 
 // ---- onboarding: pick one partner, the other five are random basics ----

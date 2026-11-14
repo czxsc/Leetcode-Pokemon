@@ -3,11 +3,32 @@
    rule module shares (EXP, levels, release value).
 ===================================================================== */
 import type { Difficulty } from '../../shared/catalog'
-import { byId, RARITY } from './species'
+import { byId, evolutionLine, evoOptions, RARITY, type Species } from './species'
 import type { GachaItem, OwnedMon } from './types'
 
-export const LEVEL_CAP = 50
+export const LEVEL_CAP = 60
 export const expToNext = (level: number) => level * 10 // level 1->2 costs 10, 9->10 costs 90
+
+// Evolving takes levels, spread evenly up the cap by how many evolutions the line has: one at
+// Lv30; two at Lv20 and Lv40 (three would be 15, 30, 45).
+const evolutionStep = (evolutions: number) => Math.round(LEVEL_CAP / (evolutions + 1))
+
+// The level a species can evolve at, or null if it doesn't evolve.
+export function evolveLevel(sp: Species | undefined): number | null {
+  if (!sp || !evoOptions(sp).length) return null
+  const { stage, evolutions } = evolutionLine(sp)
+  return (stage + 1) * evolutionStep(evolutions)
+}
+
+// Mega Evolution and Gigantamax unlock TRANSFORM_AFTER levels past the line's last evolution
+// (Lv50 for a two-evolution line, Lv40 for one), so the levels above are growth room. Species that
+// never evolve wait until TRANSFORM_MIN_LEVEL instead of transforming almost at once.
+export const TRANSFORM_AFTER = 10
+export const TRANSFORM_MIN_LEVEL = 40
+export function transformLevel(sp: Species): number {
+  const { evolutions } = evolutionLine(sp)
+  return Math.max(TRANSFORM_MIN_LEVEL, evolutions * evolutionStep(evolutions) + TRANSFORM_AFTER)
+}
 
 // Shards for solving a problem (claimed from the Dashboard).
 export const SHARD_BY_DIFF: Record<Difficulty, number> = { Easy: 150, Medium: 300, Hard: 600 }

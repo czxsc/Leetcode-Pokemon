@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { DUP_REFUND, EPIC_PITY, EPIC_TARGET_PITY, LEGEND_PITY, LEGEND_TARGET_PITY } from './rules'
-import { byId } from './species'
+import {
+  DUP_REFUND,
+  EPIC_PITY,
+  EPIC_TARGET_PITY,
+  evolveLevel,
+  LEGEND_PITY,
+  LEGEND_TARGET_PITY,
+  LEVEL_CAP,
+} from './rules'
+import { byId, DUP_LEVELS } from './species'
 import { pull, setEpicTarget, setLegendaryTarget } from './summon'
 import { ctx, game, seeded } from './test-helpers'
 
@@ -87,25 +95,31 @@ describe('pull', () => {
     expect(state.totalPulls).toBe(5)
   })
 
-  it('turns a duplicate into Shards plus a copy toward evolving', () => {
+  it('turns a duplicate into Shards plus levels for the friend it matches', () => {
     // find what the first draw with this seed gives, then own it already
     const first = pull(game({ owned: [] }), 1, null, ctx({ rng: seeded(7) })).results[0]
-    const owned = [
-      {
-        iid: 'x',
-        sp: first.speciesId,
-        level: 5,
-        exp: 0,
-        shiny: first.shiny,
-        form: null,
-        unlocked: {},
-        copies: 0,
-      },
-    ]
-    const { results, state } = pull(game({ owned }), 1, null, ctx({ rng: seeded(7) }))
-    expect(results[0].isDup).toBe(true)
+    const evolveAt = evolveLevel(byId(first.speciesId))
+    const dupOf = (level: number) => {
+      const owned = [
+        {
+          iid: 'x',
+          sp: first.speciesId,
+          level,
+          exp: 0,
+          shiny: first.shiny,
+          form: null,
+          unlocked: {},
+        },
+      ]
+      return pull(game({ owned }), 1, null, ctx({ rng: seeded(7) }))
+    }
+    const { results, state } = dupOf(5)
+    expect(results[0]).toMatchObject({ isDup: true, levels: DUP_LEVELS, level: 5 + DUP_LEVELS })
+    expect(state.owned).toEqual([expect.objectContaining({ iid: 'x', level: 5 + DUP_LEVELS })])
     expect(state.shards).toBe(game().shards + DUP_REFUND)
-    expect(state.owned).toHaveLength(1)
+    // levels that reach the evolution level say so
+    if (evolveAt) expect(dupOf(evolveAt - 1).results[0].ready).toBe(true)
+    expect(dupOf(LEVEL_CAP).results[0]).toMatchObject({ levels: 0, level: LEVEL_CAP })
   })
 
   it('is deterministic for a given random source', () => {

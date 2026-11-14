@@ -144,8 +144,8 @@ export const store = {
   shinyCandy: (iid: string) => commit(Collection.shinyCandy(state, iid)),
   useStone: (iid: string, form: Form) => commit(Collection.useStone(state, iid, form)),
   setForm: (iid: string, form: Form | null) => commit(Collection.setForm(state, iid, form)),
-  evolveByDuplicates: (iid: string, chosenEvo: string | null = null) =>
-    commit(Collection.evolveByDuplicates(state, iid, chosenEvo, ctx())),
+  evolve: (iid: string, chosenEvo: string | null = null) =>
+    commit(Collection.evolve(state, iid, chosenEvo, ctx())),
   // Returns the Shards paid.
   releaseCreatures(iids: string[]) {
     const r = Collection.releaseCreatures(state, iids)

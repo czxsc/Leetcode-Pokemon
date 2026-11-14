@@ -120,10 +120,11 @@ export function InfoModal({ onClose }) {
           <b>{`+${DUP_REFUND} Shards`}</b>.
         </div>
         <div style={para}>
-          {'Dupes of evolvable mons build toward '}
-          <b>evolution</b>
-          {` (${PM.EVO_COPIES} copies — evolve from a friend’s card); non-evolvable dupes give `}
-          <b>{`+${PM.DUP_LEVELS} levels`}</b>.
+          {'Each dupe also gives the friend it matches '}
+          <b>{`+${PM.DUP_LEVELS} levels`}</b>
+          {
+            ', and levels are what evolve a Pokémon: at Lv 30 in a line with one evolution, at Lv 20 and 40 in a line with two.'
+          }
         </div>
         <div style={para}>
           {

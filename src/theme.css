@@ -543,9 +543,6 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
 }
 
 /* evolution progress dots */
-.evo-dots{ display:flex; gap:3px; justify-content:center; }
-.evo-dots i{ width:7px; height:7px; border-radius:50%; background:var(--cream-2); border:1px solid var(--card-line); }
-.evo-dots i.on{ background:var(--lav); border-color:var(--lav-deep); }
 
 /* evolution / mega ceremony */
 .evo-stage{ position:relative; display:inline-flex; align-items:center; justify-content:center; }

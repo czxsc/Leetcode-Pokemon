@@ -10,8 +10,7 @@ export type Rarity = 'common' | 'rare' | 'epic' | 'legendary'
 export type Form = 'mega' | 'gmax'
 export type GachaItem = 'rateBooster' | 'greatBall' | 'ultraBall' | 'genTicket'
 
-// One owned Pokémon ("friend"). `sp` is the species id; `copies` are
-// duplicates banked toward evolving.
+// One owned Pokémon ("friend"). `sp` is the species id.
 export interface OwnedMon {
   iid: string
   sp: string
@@ -20,7 +19,6 @@ export interface OwnedMon {
   shiny: boolean
   form: Form | null
   unlocked: Partial<Record<Form, boolean>>
-  copies: number
 }
 
 export interface Trainer {
@@ -65,7 +63,7 @@ export interface Progress {
   // study time in ms; the live session itself is kept by platform/study-session.ts
   meadow: { coinsToday: number; kills: number; studyToday: number; studyTotal: number }
   lastDay: string
-  v: 6
+  v: 7 // 7: evolving takes levels; duplicates banked as `copies` became levels
 }
 
 export type GameState = Progress & Library

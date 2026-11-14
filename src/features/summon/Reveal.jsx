@@ -292,29 +292,12 @@ function ResultCard({ r, big, i = 0 }) {
           <span>Pity landed first — items kept</span>
         </div>
       ) : null}
-      {r.levels ? (
+      {r.isDup ? (
         <div style={dupMsg()}>
-          {'+' + r.levels + ' levels'}
+          {/* a duplicate levels up the friend it matches (nothing more once it is at the cap) */}
+          {r.levels ? '+' + r.levels + ' levels \u2192 Lv ' + r.level : 'Already Lv ' + r.level}
           <br />
-          {'+' + r.refund + ' shards'}
-        </div>
-      ) : r.isDup ? (
-        <div style={dupMsg()}>
-          <div
-            className="evo-dots"
-            style={{
-              marginBottom: 4,
-            }}
-          >
-            {Array.from({
-              length: r.need,
-            }).map((_, i) => (
-              <i key={i} className={i < r.copies ? 'on' : ''} />
-            ))}
-          </div>
-          {r.ready
-            ? 'Ready to evolve! \u00b7 +' + r.refund + 'sh'
-            : 'Evo ' + r.copies + '/' + r.need + '  \u00b7  +' + r.refund + 'sh'}
+          {r.ready ? 'Ready to evolve! \u00b7 +' + r.refund + 'sh' : '+' + r.refund + ' shards'}
         </div>
       ) : null}
     </div>

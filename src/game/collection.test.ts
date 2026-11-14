@@ -3,14 +3,14 @@ import {
   buyGachaItem,
   buyStone,
   completeOnboarding,
-  evolveByDuplicates,
+  evolve,
   rareCandy,
   releaseCreatures,
   shinyCandy,
   useStone,
 } from './collection'
-import { PRICES, releaseValue } from './rules'
-import { EVO_COPIES } from './species'
+import { evolveLevel, LEVEL_CAP, PRICES, releaseValue, transformLevel } from './rules'
+import { byId } from './species'
 import { buildState } from './state'
 import { ctx, game, TODAY } from './test-helpers'
 import type { OwnedMon } from './types'
@@ -23,7 +23,6 @@ const mon = (iid: string, sp: string, extra: Partial<OwnedMon> = {}): OwnedMon =
   shiny: false,
   form: null,
   unlocked: {},
-  copies: 0,
   ...extra,
 })
 
@@ -71,24 +70,42 @@ describe('shop', () => {
 })
 
 describe('forms and evolution', () => {
-  it('unlocks a mega form with a stone, once', () => {
-    const s = useStone(game({ megaStones: 1, owned: [mon('a', 'charizard')] }), 'a', 'mega')!
+  const at = (sp: string, level: number) => game({ owned: [mon('a', sp, { level })] })
+
+  it('spreads a line’s evolutions evenly up to the level cap', () => {
+    const level = (id: string) => evolveLevel(byId(id))
+    expect([level('charmander'), level('charmeleon'), level('charizard')]).toEqual([20, 40, null])
+    expect([level('magikarp'), level('eevee'), level('mewtwo')]).toEqual([30, 30, null])
+    expect(LEVEL_CAP).toBe(60)
+  })
+
+  it('unlocks Mega and G-Max 10 levels after the line’s last evolution, from Lv40 at least', () => {
+    const level = (id: string) => transformLevel(byId(id)!)
+    expect(level('charizard')).toBe(50)
+    expect(level('pikachu')).toBe(50) // Raichu's line, even before evolving
+    expect([level('gyarados'), level('meowth')]).toEqual([40, 40])
+    expect(level('mewtwo')).toBe(40) // never evolves
+  })
+
+  it('unlocks a mega form with a stone, once, at its level', () => {
+    expect(useStone({ ...at('charizard', 49), megaStones: 1 }, 'a', 'mega')).toBeNull()
+    const s = useStone({ ...at('charizard', 50), megaStones: 1 }, 'a', 'mega')!
     expect(s.owned[0]).toMatchObject({ form: 'mega', unlocked: { mega: true } })
     expect(s.megaStones).toBe(0)
     expect(useStone({ ...s, megaStones: 1 }, 'a', 'mega')).toBeNull()
   })
 
-  it('evolves only with enough copies, counting the evolution', () => {
-    const owned = [mon('a', 'charmander', { copies: EVO_COPIES - 1 })]
-    expect(evolveByDuplicates(game({ owned }), 'a', null, ctx())).toBeNull()
-    const s = evolveByDuplicates(
-      game({ owned: [{ ...owned[0], copies: EVO_COPIES }] }),
-      'a',
-      null,
-      ctx(),
-    )!
-    expect(s.owned[0]).toMatchObject({ sp: 'charmeleon', copies: 0 })
+  it('evolves at its level, keeping the level and counting the evolution', () => {
+    expect(evolve(at('charmander', 19), 'a', null, ctx())).toBeNull()
+    const s = evolve(at('charmander', 20), 'a', null, ctx())!
+    expect(s.owned[0]).toMatchObject({ sp: 'charmeleon', level: 20 })
     expect(s.stats.evolutions).toBe(1)
+    expect(evolve(s, 'a', null, ctx())).toBeNull() // Charmeleon waits for Lv40
+    expect(evolve(at('charizard', 60), 'a', null, ctx())).toBeNull()
+  })
+
+  it('lets Eevee’s evolution be chosen', () => {
+    expect(evolve(at('eevee', 30), 'a', 'vaporeon', ctx())!.owned[0].sp).toBe('vaporeon')
   })
 })
 

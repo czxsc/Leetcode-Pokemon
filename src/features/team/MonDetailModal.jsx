@@ -3,7 +3,7 @@ import { Creature } from '../../components/Creature'
 import { PixelSparkle } from '../../components/PixelSparkle'
 import { RarityTag, TypeTag } from '../../components/Tags'
 import { monPower } from '../../game/derived'
-import { expToNext } from '../../game/rules'
+import { evolveLevel, expToNext, transformLevel } from '../../game/rules'
 import * as PM from '../../game/species'
 import { store, useStore } from '../../state/store'
 
@@ -136,9 +136,11 @@ export function MonDetailModal({ iid, onClose }) {
   const rar = PM.RARITY[sp.rarity]
   const need = expToNext(inst.level)
   const power = monPower(inst)
-  const canEvo = !!(sp.evo || sp.id === 'eevee')
-  const copies = inst.copies || 0
-  const evoReady = canEvo && copies >= PM.EVO_COPIES
+  const evoAt = evolveLevel(sp) // null: doesn't evolve
+  const canEvo = evoAt !== null
+  const evoReady = canEvo && inst.level >= evoAt
+  const formAt = transformLevel(sp)
+  const formReady = inst.level >= formAt
   const evoOptions = PM.evoOptions(sp)
   const evoName =
     evoOptions.length === 1 && PM.byId(evoOptions[0]) ? PM.byId(evoOptions[0]).name : null
@@ -248,7 +250,7 @@ export function MonDetailModal({ iid, onClose }) {
         <button
           key="mb"
           className="btn lav"
-          disabled={(st.megaStones || 0) <= 0 || !!anim}
+          disabled={!formReady || (st.megaStones || 0) <= 0 || !!anim}
           style={{
             width: '100%',
             fontSize: 11,
@@ -257,9 +259,11 @@ export function MonDetailModal({ iid, onClose }) {
           }}
           onClick={() => ceremony(() => store.useStone(iid, 'mega'), 'mega')}
         >
-          {(st.megaStones || 0) <= 0
-            ? 'No Mega Stones in bag'
-            : '\ud83d\udd2e Use Mega Stone  \u00b7  \u00d7' + (st.megaStones || 0)}
+          {!formReady
+            ? 'Mega Evolution at Lv ' + formAt
+            : (st.megaStones || 0) <= 0
+              ? 'No Mega Stones in bag'
+              : '\ud83d\udd2e Use Mega Stone  \u00b7  \u00d7' + (st.megaStones || 0)}
         </button>
       ),
     )
@@ -282,7 +286,7 @@ export function MonDetailModal({ iid, onClose }) {
         <button
           key="gb"
           className="btn pink"
-          disabled={(st.gmaxStones || 0) <= 0 || !!anim}
+          disabled={!formReady || (st.gmaxStones || 0) <= 0 || !!anim}
           style={{
             width: '100%',
             fontSize: 11,
@@ -290,9 +294,11 @@ export function MonDetailModal({ iid, onClose }) {
           }}
           onClick={() => ceremony(() => store.useStone(iid, 'gmax'), 'gmax')}
         >
-          {(st.gmaxStones || 0) <= 0
-            ? 'No G-Max Stones in bag'
-            : '\ud83c\udf00 Use G-Max Stone  \u00b7  \u00d7' + (st.gmaxStones || 0)}
+          {!formReady
+            ? 'Gigantamax at Lv ' + formAt
+            : (st.gmaxStones || 0) <= 0
+              ? 'No G-Max Stones in bag'
+              : '\ud83c\udf00 Use G-Max Stone  \u00b7  \u00d7' + (st.gmaxStones || 0)}
         </button>
       ),
     )
@@ -436,7 +442,7 @@ export function MonDetailModal({ iid, onClose }) {
             margin: '4px 0 14px',
           }}
         />
-        {/* duplicates / evolution */}
+        {/* evolution: unlocks at a level (duplicates add levels) */}
         {canEvo ? (
           <div
             className="chip-card"
@@ -461,7 +467,7 @@ export function MonDetailModal({ iid, onClose }) {
                   color: 'var(--ink-faint)',
                 }}
               >
-                DUPLICATES COLLECTED
+                EVOLUTION
               </span>
               <span
                 style={{
@@ -470,33 +476,26 @@ export function MonDetailModal({ iid, onClose }) {
                   color: evoReady ? 'var(--sage-deep)' : 'var(--lav-deep)',
                 }}
               >
-                {copies + ' / ' + PM.EVO_COPIES}
+                {'Lv ' + Math.min(inst.level, evoAt) + ' / ' + evoAt}
               </span>
             </div>
             <div
-              className="evo-dots"
+              className="expbar"
               style={{
-                justifyContent: 'flex-start',
+                height: 9,
                 marginBottom: 11,
               }}
             >
-              {Array.from({
-                length: PM.EVO_COPIES,
-              }).map((_, i) => (
-                <i
-                  key={i}
-                  className={i < copies ? 'on' : ''}
-                  style={{
-                    width: 13,
-                    height: 13,
-                  }}
-                />
-              ))}
+              <i
+                style={{
+                  width: Math.min(100, Math.round((inst.level / evoAt) * 100)) + '%',
+                }}
+              />
             </div>
             {evoReady && evoOptions.length > 1 ? (
               <EvolutionChoice
                 inst={inst}
-                onChoose={(id) => ceremony(() => store.evolveByDuplicates(iid, id), 'evolve')}
+                onChoose={(id) => ceremony(() => store.evolve(iid, id), 'evolve')}
               />
             ) : null}
             <button
@@ -507,13 +506,13 @@ export function MonDetailModal({ iid, onClose }) {
                 fontSize: 11,
                 padding: '11px',
               }}
-              onClick={() => ceremony(() => store.evolveByDuplicates(iid), 'evolve')}
+              onClick={() => ceremony(() => store.evolve(iid), 'evolve')}
             >
               {evoReady
                 ? evoOptions.length > 1
                   ? '\u2728 Choose an evolution above'
                   : '\u2728 Evolve' + (evoName ? ' into ' + evoName : '') + '!'
-                : 'Collect ' + (PM.EVO_COPIES - copies) + ' more to evolve'}
+                : 'Evolves at Lv ' + evoAt + '  \u00b7  ' + (evoAt - inst.level) + ' to go'}
             </button>
           </div>
         ) : (

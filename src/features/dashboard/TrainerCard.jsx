@@ -5,7 +5,7 @@ import { Coin, Shard } from '../../components/icons'
 import { todayLocal } from '../../game/dates'
 import * as D from '../../game/derived'
 import { monPower } from '../../game/derived'
-import { expToNext } from '../../game/rules'
+import { evolveLevel, expToNext } from '../../game/rules'
 import * as PM from '../../game/species'
 import { shrinkPhoto } from '../../lib/photo'
 import { store, useSaveStatus, useStore } from '../../state/store'
@@ -538,7 +538,8 @@ export function TrainerCard() {
           {team.map((m) => {
             const sp = PM.byId(m.sp)
             const need = expToNext(m.level)
-            const evoReady = (sp.evo || sp.id === 'eevee') && (m.copies || 0) >= PM.EVO_COPIES
+            const evoAt = evolveLevel(sp)
+            const evoReady = evoAt !== null && m.level >= evoAt
             const megaCap = PM.canTransform(sp)
             return (
               <button

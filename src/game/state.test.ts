@@ -80,4 +80,21 @@ describe('state documents', () => {
     expect(buildState({ owned, team: ['a'] }, null, TODAY, NOW).onboarded).toBe(true)
     expect(buildState(null, null, TODAY, NOW).onboarded).toBe(false)
   })
+
+  it('turns duplicates banked toward evolving (before v7) into levels', () => {
+    const mon = { exp: 4, shiny: false, form: null, unlocked: {} }
+    const saved = {
+      v: 6,
+      owned: [
+        { ...mon, iid: 'a', sp: 'charmander', level: 5, copies: 2 },
+        { ...mon, iid: 'b', sp: 'pidgey', level: 55, copies: 1 },
+        { ...mon, iid: 'c', sp: 'rattata', level: 7, copies: 0 },
+      ],
+    }
+    const s = buildState(saved, null, TODAY, NOW)
+    expect(s.v).toBe(7)
+    expect(s.owned.map((o) => o.level)).toEqual([25, 60, 7])
+    expect(s.owned.every((o) => !('copies' in o))).toBe(true)
+    expect(s.owned[0].exp).toBe(4)
+  })
 })

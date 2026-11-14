@@ -54,11 +54,6 @@ export function Team() {
           formed.map(monName).join(', ') +
           ' are lost (stones aren’t refunded).',
       )
-    const copied = pickedMons.filter((o) => o.copies > 0)
-    if (copied.length)
-      notes.push(
-        'Duplicates collected toward evolution on ' + copied.map(monName).join(', ') + ' are lost.',
-      )
     const lastOf = pickedMons.filter(
       (o) => !st.owned.some((x) => !leaving.has(x.iid) && x.sp === o.sp),
     )

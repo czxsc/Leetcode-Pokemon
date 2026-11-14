@@ -3,7 +3,8 @@
    daily rollover, and the split into the two saved documents.
 ===================================================================== */
 import * as Catalog from '../../shared/catalog'
-import { GACHA_ITEMS } from './rules'
+import { addLevels, GACHA_ITEMS } from './rules'
+import { DUP_LEVELS } from './species'
 import type { CustomTag, GameState, Library, OwnedMon, Problem, Progress, Stats } from './types'
 
 // Saved documents are untrusted JSON: everything read from them is checked and normalized.
@@ -29,7 +30,6 @@ function starterOwned(): OwnedMon[] {
     shiny: false,
     form: null,
     unlocked: {},
-    copies: 0,
   })
   return [
     mk('c1', 'bulbasaur'),
@@ -78,7 +78,7 @@ export function seedProgress(today: string): Progress {
     epicTargetPityCount: 0,
     meadow: { coinsToday: 0, kills: 0, studyToday: 0, studyTotal: 0 },
     lastDay: today,
-    v: 6,
+    v: 7,
   }
 }
 
@@ -107,16 +107,19 @@ export function normalizeProgress(saved: Saved, today: string): Progress {
       GACHA_ITEMS.map((k) => [k, count((saved.items || {})[k])]),
     ) as Progress['items'],
     achievements: { ...(saved.achievements || {}) },
-    v: 6 as const,
+    v: 7 as const,
   })
   delete (p as Partial<GameState>).problems
   delete (p as Partial<GameState>).customTags
   if (!isAvatar(p.trainer.avatar)) delete p.trainer.avatar
-  // every instance has an `unlocked` form set (derived from a legacy `form`)
-  p.owned = (Array.isArray(p.owned) ? p.owned : []).map((o) => {
+  // every instance has an `unlocked` form set (derived from a legacy `form`); duplicates banked
+  // toward evolving before v7 (`copies`) become the levels a duplicate gives now
+  p.owned = (Array.isArray(p.owned) ? (p.owned as Saved[]) : []).map((raw) => {
+    const { copies, ...o } = raw
     let unlocked = o.unlocked || {}
     if (o.form && !unlocked[o.form]) unlocked = { ...unlocked, [o.form]: true }
-    return { ...o, unlocked }
+    const mon = { ...o, unlocked } as OwnedMon
+    return count(copies) ? addLevels(mon, Math.floor(count(copies)) * DUP_LEVELS) : mon
   })
   p.team = (Array.isArray(p.team) ? p.team : [])
     .filter((iid) => p.owned.some((o) => o.iid === iid))

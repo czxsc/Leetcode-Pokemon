@@ -4,8 +4,17 @@
    Every rule returns the next state, or null when it isn't allowed.
 ===================================================================== */
 import * as Catalog from '../../shared/catalog'
-import { CANDY_EXP, GACHA_ITEMS, giveExp, PRICES, releaseValue, SNACK_EXP } from './rules'
-import { byId, EVO_COPIES, evoOptions, pick, STARTERS } from './species'
+import {
+  CANDY_EXP,
+  evolveLevel,
+  GACHA_ITEMS,
+  giveExp,
+  PRICES,
+  releaseValue,
+  SNACK_EXP,
+  transformLevel,
+} from './rules'
+import { byId, evoOptions, pick, STARTERS } from './species'
 import { isAvatar } from './state'
 import type { Ctx, Form, GachaItem, GameState, OwnedMon } from './types'
 
@@ -41,7 +50,6 @@ export function completeOnboarding(
     shiny: false,
     form: null,
     unlocked: {},
-    copies: 0,
   }))
   const trainer: GameState['trainer'] = { name: trainerName(name) }
   if (isAvatar(avatar)) trainer.avatar = avatar
@@ -95,7 +103,7 @@ export const buyGachaItem = (s: GameState, id: GachaItem): Next =>
     ? spendCoins(s, PRICES[id], (x) => ({ ...x, items: { ...x.items, [id]: x.items[id] + 1 } }))
     : null
 
-// Shiny Candy: turns one friend shiny (level, forms and copies stay). Its normal version is then
+// Shiny Candy: turns one friend shiny (level and forms stay). Its normal version is then
 // no longer owned, so the summon pays it out as NEW again and both versions can be collected.
 // Refused when a shiny of that species is already owned.
 export function shinyCandy(s: GameState, iid: string): Next {
@@ -107,12 +115,13 @@ export function shinyCandy(s: GameState, iid: string): Next {
   }))
 }
 
-// ---- forms: unlock with a stone, then switch freely ----
+// ---- forms: unlock with a stone once strong enough, then switch freely ----
 export function useStone(s: GameState, iid: string, form: Form): Next {
   const inst = s.owned.find((o) => o.iid === iid)
   const sp = inst && byId(inst.sp)
   const stones = form === 'mega' ? s.megaStones : s.gmaxStones
   if (!inst || !sp || !sp[form] || inst.unlocked[form] || stones <= 0) return null
+  if (inst.level < transformLevel(sp)) return null
   return {
     ...s,
     ...(form === 'mega' ? { megaStones: stones - 1 } : { gmaxStones: stones - 1 }),
@@ -128,22 +137,18 @@ export function setForm(s: GameState, iid: string, form: Form | null): Next {
   return { ...s, owned: s.owned.map((o) => (o.iid === iid ? { ...o, form: form || null } : o)) }
 }
 
-// ---- evolve by duplicate copies (player-initiated) ----
-export function evolveByDuplicates(
-  s: GameState,
-  iid: string,
-  chosenEvo: string | null,
-  ctx: Ctx,
-): Next {
+// ---- evolve at the species' evolution level (player-initiated, so Eevee's can be chosen) ----
+// The level carries over; Mega and G-Max unlocks belonged to the old species.
+export function evolve(s: GameState, iid: string, chosenEvo: string | null, ctx: Ctx): Next {
   const inst = s.owned.find((o) => o.iid === iid)
-  const options = evoOptions(byId(inst?.sp))
-  if (!inst || !options.length || inst.copies < EVO_COPIES) return null
+  const sp = byId(inst?.sp)
+  const at = evolveLevel(sp)
+  if (!inst || at === null || inst.level < at) return null
+  const options = evoOptions(sp)
   const evo = chosenEvo && options.includes(chosenEvo) ? chosenEvo : pick(ctx.rng, options)
   return {
     ...s,
-    owned: s.owned.map((o) =>
-      o.iid === iid ? { ...o, sp: evo, copies: 0, form: null, unlocked: {} } : o,
-    ),
+    owned: s.owned.map((o) => (o.iid === iid ? { ...o, sp: evo, form: null, unlocked: {} } : o)),
     stats: { ...s.stats, evolutions: s.stats.evolutions + 1 },
   }
 }

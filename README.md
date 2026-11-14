@@ -17,8 +17,9 @@ to earn coins for upgrades.
 - **Onboarding:** on first launch, pick a trainer name, an optional photo, and
   a partner Pokémon from every generation's starters (plus Pikachu and Eevee).
   Four random commons and one random rare join it for a starting team of six.
-- **Team building:** level up your six, evolve duplicates, and unlock Mega and
-  Gigantamax forms with Shop items bought with Coins.
+- **Team building:** level up your six (a duplicate adds 10 levels), evolve them
+  at set levels (Lv 20 and 40, or Lv 30 for one evolution), and from Lv 40–50
+  unlock Mega and Gigantamax forms with Shop items bought with Coins.
 - **Summon items** from the Shop, used on a Single Draw: a Rate Booster (double
   Epic and Legendary odds), a Great Ball (always Rare), an Ultra Ball (always
   Epic), and a Generation Ticket (pick the generation, and combine it with any

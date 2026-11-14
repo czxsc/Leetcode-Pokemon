@@ -14,6 +14,7 @@ import {
   DUP_REFUND,
   EPIC_PITY,
   EPIC_TARGET_PITY,
+  evolveLevel,
   LEGEND_PITY,
   LEGEND_TARGET_PITY,
   newId,
@@ -21,8 +22,6 @@ import {
 import {
   byId,
   DUP_LEVELS,
-  EVO_COPIES,
-  evoOptions,
   GENERATIONS,
   randomOfTier,
   rollShiny,
@@ -42,10 +41,9 @@ export interface PullResult {
   rarity: Rarity
   isNew?: boolean
   isDup?: boolean
-  copies?: number // duplicate of an evolvable friend: copies banked so far
-  need?: number
-  ready?: boolean
-  levels?: number // duplicate of a final form: levels gained
+  levels?: number // duplicate: levels the matching friend gained (none once at the cap)
+  level?: number // duplicate: that friend's level now
+  ready?: boolean // duplicate: those levels made it able to evolve
   refund?: number
   pity: boolean
   target: boolean
@@ -149,26 +147,23 @@ export function pull(
 
     const idx = owned.findIndex((o) => o.sp === sp.id && o.shiny === shiny)
     if (idx >= 0) {
-      // a duplicate: some Shards back, plus a copy toward evolving (or levels for a final form)
+      // a duplicate: some Shards back, and levels for the friend it matches, which speeds up evolving
       shards += DUP_REFUND
-      if (evoOptions(sp).length) {
-        const copies = Math.min(EVO_COPIES, owned[idx].copies + 1)
-        owned[idx] = { ...owned[idx], copies }
-        results.push({
-          ...base,
-          isDup: true,
-          copies,
-          need: EVO_COPIES,
-          refund: DUP_REFUND,
-          ready: copies >= EVO_COPIES,
-        })
-      } else {
-        owned[idx] = addLevels(owned[idx], DUP_LEVELS)
-        results.push({ ...base, isDup: true, levels: DUP_LEVELS, refund: DUP_REFUND })
-      }
+      const before = owned[idx].level
+      owned[idx] = addLevels(owned[idx], DUP_LEVELS)
+      const level = owned[idx].level
+      const evolveAt = evolveLevel(sp)
+      results.push({
+        ...base,
+        isDup: true,
+        levels: level - before,
+        level,
+        ready: evolveAt !== null && before < evolveAt && level >= evolveAt,
+        refund: DUP_REFUND,
+      })
     } else {
       const iid = newId('g' + i, ctx.now, ctx.rng)
-      owned.push({ iid, sp: sp.id, level: 1, exp: 0, shiny, form: null, unlocked: {}, copies: 0 })
+      owned.push({ iid, sp: sp.id, level: 1, exp: 0, shiny, form: null, unlocked: {} })
       results.push({ ...base, isNew: true })
     }
   }
