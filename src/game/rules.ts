@@ -9,15 +9,18 @@ import type { GachaItem, OwnedMon } from './types'
 export const LEVEL_CAP = 60
 export const expToNext = (level: number) => level * 10 // level 1->2 costs 10, 9->10 costs 90
 
-// Evolving takes levels, spread evenly up the cap by how many evolutions the line has: one at
-// Lv30; two at Lv20 and Lv40 (three would be 15, 30, 45).
-const evolutionStep = (evolutions: number) => Math.round(LEVEL_CAP / (evolutions + 1))
+// Evolving takes levels, spread evenly up the cap by how many evolutions the line has: [30] for
+// one, [20, 40] for two (three would be 15, 30, 45).
+export function evolutionLevels(evolutions: number): number[] {
+  const step = Math.round(LEVEL_CAP / (evolutions + 1))
+  return Array.from({ length: evolutions }, (_, i) => (i + 1) * step)
+}
 
 // The level a species can evolve at, or null if it doesn't evolve.
 export function evolveLevel(sp: Species | undefined): number | null {
   if (!sp || !evoOptions(sp).length) return null
   const { stage, evolutions } = evolutionLine(sp)
-  return (stage + 1) * evolutionStep(evolutions)
+  return evolutionLevels(evolutions)[stage]
 }
 
 // Mega Evolution and Gigantamax unlock TRANSFORM_AFTER levels past the line's last evolution
@@ -25,9 +28,21 @@ export function evolveLevel(sp: Species | undefined): number | null {
 // never evolve wait until TRANSFORM_MIN_LEVEL instead of transforming almost at once.
 export const TRANSFORM_AFTER = 10
 export const TRANSFORM_MIN_LEVEL = 40
-export function transformLevel(sp: Species): number {
-  const { evolutions } = evolutionLine(sp)
-  return Math.max(TRANSFORM_MIN_LEVEL, evolutions * evolutionStep(evolutions) + TRANSFORM_AFTER)
+export function transformLevelFor(evolutions: number): number {
+  const last = evolutionLevels(evolutions).at(-1) ?? 0
+  return Math.max(TRANSFORM_MIN_LEVEL, last + TRANSFORM_AFTER)
+}
+export const transformLevel = (sp: Species) => transformLevelFor(evolutionLine(sp).evolutions)
+
+// What a friend can do now. The rules and every button or badge use these, so they agree.
+export function readyToEvolve(inst: OwnedMon): boolean {
+  const at = evolveLevel(byId(inst.sp))
+  return at !== null && inst.level >= at
+}
+// A Mega or G-Max form this friend's species has and could unlock with a stone now.
+export function readyToTransform(inst: OwnedMon): boolean {
+  const sp = byId(inst.sp)
+  return !!sp && !!(sp.mega || sp.gmax) && inst.level >= transformLevel(sp)
 }
 
 // Shards for solving a problem (claimed from the Dashboard).

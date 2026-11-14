@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Coin } from '../../components/icons'
 import { ItemIcon } from '../../components/ItemIcon'
 import { Toast } from '../../components/Toast'
-import { PRICES, expToNext } from '../../game/rules'
+import { PRICES, expToNext, TRANSFORM_MIN_LEVEL, transformLevelFor } from '../../game/rules'
 import { store, useStore } from '../../state/store'
 import { ITEMS } from '../summon/items'
 import { FeedModal } from './FeedModal'
@@ -13,6 +13,9 @@ const withPrice = (item) => ({
   ...item,
   price: PRICES[item.id],
 })
+
+// Stones work from this level range: the lowest for any species, the highest for two-evolution lines
+const STONE_LEVELS = `Lv ${TRANSFORM_MIN_LEVEL}–${transformLevelFor(2)}`
 
 // Rate Booster, Great / Ultra Ball, Generation Ticket — used from the Summon tab (defined in features/summon/items.js)
 const GACHA_ITEMS = ITEMS.map((it) =>
@@ -40,7 +43,7 @@ const BAG_ITEMS = [
     sprite: 'key-stone',
     emoji: '🔮',
     btn: 'lav',
-    desc: 'Unlock a Mega Evolution from a Pokémon’s detail card, from Lv 40–50',
+    desc: 'Unlock a Mega Evolution from a Pokémon’s detail card, from ' + STONE_LEVELS,
     bag: (st) => st.megaStones || 0,
     tag: 'var(--lav)',
     buy: () => store.buyStone('mega') && 'Mega Stone added to your bag!',
@@ -51,7 +54,7 @@ const BAG_ITEMS = [
     sprite: 'red-shard',
     emoji: '🌀',
     btn: 'pink',
-    desc: 'Unlock a Gigantamax form from a Pokémon’s detail card, from Lv 40–50',
+    desc: 'Unlock a Gigantamax form from a Pokémon’s detail card, from ' + STONE_LEVELS,
     bag: (st) => st.gmaxStones || 0,
     tag: 'var(--pink)',
     buy: () => store.buyStone('gmax') && 'Gigantamax Stone added to your bag!',

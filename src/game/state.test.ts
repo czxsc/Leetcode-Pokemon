@@ -89,11 +89,13 @@ describe('state documents', () => {
         { ...mon, iid: 'a', sp: 'charmander', level: 5, copies: 2 },
         { ...mon, iid: 'b', sp: 'pidgey', level: 55, copies: 1 },
         { ...mon, iid: 'c', sp: 'rattata', level: 7, copies: 0 },
+        // had the 3 copies it needed to evolve, so it still can (Ivysaur evolves at Lv40)
+        { ...mon, iid: 'd', sp: 'ivysaur', level: 5, copies: 3 },
       ],
     }
     const s = buildState(saved, null, TODAY, NOW)
     expect(s.v).toBe(7)
-    expect(s.owned.map((o) => o.level)).toEqual([25, 60, 7])
+    expect(s.owned.map((o) => o.level)).toEqual([25, 60, 7, 40])
     expect(s.owned.every((o) => !('copies' in o))).toBe(true)
     expect(s.owned[0].exp).toBe(4)
   })

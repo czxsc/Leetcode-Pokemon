@@ -5,7 +5,7 @@ import { Coin, Shard } from '../../components/icons'
 import { todayLocal } from '../../game/dates'
 import * as D from '../../game/derived'
 import { monPower } from '../../game/derived'
-import { evolveLevel, expToNext } from '../../game/rules'
+import { expToNext, readyToEvolve, readyToTransform } from '../../game/rules'
 import * as PM from '../../game/species'
 import { shrinkPhoto } from '../../lib/photo'
 import { store, useSaveStatus, useStore } from '../../state/store'
@@ -538,9 +538,11 @@ export function TrainerCard() {
           {team.map((m) => {
             const sp = PM.byId(m.sp)
             const need = expToNext(m.level)
-            const evoAt = evolveLevel(sp)
-            const evoReady = evoAt !== null && m.level >= evoAt
-            const megaCap = PM.canTransform(sp)
+            const evoReady = readyToEvolve(m)
+            // strong enough for a Mega or G-Max form it hasn't unlocked yet
+            const formReady =
+              readyToTransform(m) &&
+              ((sp.mega && !m.unlocked.mega) || (sp.gmax && !m.unlocked.gmax))
             return (
               <button
                 key={m.iid}
@@ -578,9 +580,9 @@ export function TrainerCard() {
                   >
                     ↑
                   </span>
-                ) : megaCap && !m.form ? (
+                ) : formReady ? (
                   <span
-                    title="Can Mega-Evolve"
+                    title="Ready for a Mega or G-Max form"
                     style={{
                       position: 'absolute',
                       top: -5,

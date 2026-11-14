@@ -542,8 +542,6 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
   .px-spark .f-big, .px-spark .f-mid, .px-spark .f-small, .px-spark .f-twin{ animation:none; }
 }
 
-/* evolution progress dots */
-
 /* evolution / mega ceremony */
 .evo-stage{ position:relative; display:inline-flex; align-items:center; justify-content:center; }
 .evo-stage.go .evo-mon{ animation:evopulse 1.25s ease-in-out forwards; }

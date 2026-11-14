@@ -3,6 +3,7 @@ import {
   DUP_REFUND,
   EPIC_PITY,
   EPIC_TARGET_PITY,
+  evolutionLevels,
   LEGEND_PITY,
   LEGEND_TARGET_PITY,
 } from '../../game/rules'
@@ -122,9 +123,7 @@ export function InfoModal({ onClose }) {
         <div style={para}>
           {'Each dupe also gives the friend it matches '}
           <b>{`+${PM.DUP_LEVELS} levels`}</b>
-          {
-            ', and levels are what evolve a Pokémon: at Lv 30 in a line with one evolution, at Lv 20 and 40 in a line with two.'
-          }
+          {`, and levels are what evolve a Pokémon: at Lv ${evolutionLevels(1).join('')} in a line with one evolution, at Lv ${evolutionLevels(2).join(' and ')} in a line with two.`}
         </div>
         <div style={para}>
           {

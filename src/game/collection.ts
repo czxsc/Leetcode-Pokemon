@@ -6,13 +6,13 @@
 import * as Catalog from '../../shared/catalog'
 import {
   CANDY_EXP,
-  evolveLevel,
   GACHA_ITEMS,
   giveExp,
   PRICES,
+  readyToEvolve,
+  readyToTransform,
   releaseValue,
   SNACK_EXP,
-  transformLevel,
 } from './rules'
 import { byId, evoOptions, pick, STARTERS } from './species'
 import { isAvatar } from './state'
@@ -121,7 +121,7 @@ export function useStone(s: GameState, iid: string, form: Form): Next {
   const sp = inst && byId(inst.sp)
   const stones = form === 'mega' ? s.megaStones : s.gmaxStones
   if (!inst || !sp || !sp[form] || inst.unlocked[form] || stones <= 0) return null
-  if (inst.level < transformLevel(sp)) return null
+  if (!readyToTransform(inst)) return null
   return {
     ...s,
     ...(form === 'mega' ? { megaStones: stones - 1 } : { gmaxStones: stones - 1 }),
@@ -138,13 +138,12 @@ export function setForm(s: GameState, iid: string, form: Form | null): Next {
 }
 
 // ---- evolve at the species' evolution level (player-initiated, so Eevee's can be chosen) ----
-// The level carries over; Mega and G-Max unlocks belonged to the old species.
+// The level carries over. Mega and G-Max unlocks belonged to the old species and are lost, which
+// the detail card warns about (only Pikachu and Meowth can transform and still evolve).
 export function evolve(s: GameState, iid: string, chosenEvo: string | null, ctx: Ctx): Next {
   const inst = s.owned.find((o) => o.iid === iid)
-  const sp = byId(inst?.sp)
-  const at = evolveLevel(sp)
-  if (!inst || at === null || inst.level < at) return null
-  const options = evoOptions(sp)
+  if (!inst || !readyToEvolve(inst)) return null
+  const options = evoOptions(byId(inst.sp))
   const evo = chosenEvo && options.includes(chosenEvo) ? chosenEvo : pick(ctx.rng, options)
   return {
     ...s,

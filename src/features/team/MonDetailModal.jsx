@@ -3,7 +3,13 @@ import { Creature } from '../../components/Creature'
 import { PixelSparkle } from '../../components/PixelSparkle'
 import { RarityTag, TypeTag } from '../../components/Tags'
 import { monPower } from '../../game/derived'
-import { evolveLevel, expToNext, transformLevel } from '../../game/rules'
+import {
+  evolveLevel,
+  expToNext,
+  readyToEvolve,
+  readyToTransform,
+  transformLevel,
+} from '../../game/rules'
 import * as PM from '../../game/species'
 import { store, useStore } from '../../state/store'
 
@@ -138,9 +144,9 @@ export function MonDetailModal({ iid, onClose }) {
   const power = monPower(inst)
   const evoAt = evolveLevel(sp) // null: doesn't evolve
   const canEvo = evoAt !== null
-  const evoReady = canEvo && inst.level >= evoAt
+  const evoReady = readyToEvolve(inst)
   const formAt = transformLevel(sp)
-  const formReady = inst.level >= formAt
+  const formReady = readyToTransform(inst)
   const evoOptions = PM.evoOptions(sp)
   const evoName =
     evoOptions.length === 1 && PM.byId(evoOptions[0]) ? PM.byId(evoOptions[0]).name : null
@@ -514,6 +520,25 @@ export function MonDetailModal({ iid, onClose }) {
                   : '\u2728 Evolve' + (evoName ? ' into ' + evoName : '') + '!'
                 : 'Evolves at Lv ' + evoAt + '  \u00b7  ' + (evoAt - inst.level) + ' to go'}
             </button>
+            {/* only Pikachu and Meowth can transform and still evolve */}
+            {evoReady && (megaUnlocked || gmaxUnlocked) ? (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: 'var(--ink-soft)',
+                  marginTop: 8,
+                  lineHeight: 1.4,
+                }}
+              >
+                {'Evolving gives up its ' +
+                  (megaUnlocked && gmaxUnlocked
+                    ? 'Mega and Gigantamax forms'
+                    : megaUnlocked
+                      ? 'Mega form'
+                      : 'Gigantamax form') +
+                  ', and the stone isn\u2019t refunded.'}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div

@@ -96,9 +96,14 @@ describe('pull', () => {
   })
 
   it('turns a duplicate into Shards plus levels for the friend it matches', () => {
-    // find what the first draw with this seed gives, then own it already
-    const first = pull(game({ owned: [] }), 1, null, ctx({ rng: seeded(7) })).results[0]
-    const evolveAt = evolveLevel(byId(first.speciesId))
+    // a seed whose first draw evolves, so its duplicate can make it ready to
+    const firstDraw = (seed: number) =>
+      pull(game({ owned: [] }), 1, null, ctx({ rng: seeded(seed) })).results[0]
+    const seed = Array.from({ length: 50 }, (_, i) => i + 1).find(
+      (n) => evolveLevel(byId(firstDraw(n).speciesId)) !== null,
+    )!
+    const first = firstDraw(seed)
+    const evolveAt = evolveLevel(byId(first.speciesId))!
     const dupOf = (level: number) => {
       const owned = [
         {
@@ -111,14 +116,16 @@ describe('pull', () => {
           unlocked: {},
         },
       ]
-      return pull(game({ owned }), 1, null, ctx({ rng: seeded(7) }))
+      return pull(game({ owned }), 1, null, ctx({ rng: seeded(seed) }))
     }
-    const { results, state } = dupOf(5)
-    expect(results[0]).toMatchObject({ isDup: true, levels: DUP_LEVELS, level: 5 + DUP_LEVELS })
-    expect(state.owned).toEqual([expect.objectContaining({ iid: 'x', level: 5 + DUP_LEVELS })])
+    const { results, state } = dupOf(1)
+    expect(results[0]).toMatchObject({ isDup: true, levels: DUP_LEVELS, level: 1 + DUP_LEVELS })
+    expect(state.owned).toEqual([expect.objectContaining({ iid: 'x', level: 1 + DUP_LEVELS })])
     expect(state.shards).toBe(game().shards + DUP_REFUND)
-    // levels that reach the evolution level say so
-    if (evolveAt) expect(dupOf(evolveAt - 1).results[0].ready).toBe(true)
+    // `ready` only when these levels reach the evolution level
+    expect(dupOf(evolveAt - 1).results[0].ready).toBe(true)
+    expect(dupOf(evolveAt - DUP_LEVELS - 1).results[0].ready).toBe(false)
+    expect(dupOf(evolveAt).results[0].ready).toBe(false) // could already evolve
     expect(dupOf(LEVEL_CAP).results[0]).toMatchObject({ levels: 0, level: LEVEL_CAP })
   })
 

@@ -3,9 +3,21 @@
    daily rollover, and the split into the two saved documents.
 ===================================================================== */
 import * as Catalog from '../../shared/catalog'
-import { addLevels, GACHA_ITEMS } from './rules'
-import { DUP_LEVELS } from './species'
+import { addLevels, evolveLevel, GACHA_ITEMS } from './rules'
+import { byId } from './species'
 import type { CustomTag, GameState, Library, OwnedMon, Problem, Progress, Stats } from './types'
+
+// Before v7, evolving took V6_EVO_COPIES duplicates banked as `copies`. Each banked copy is now
+// worth V6_COPY_LEVELS levels, and a friend that had enough to evolve can still evolve. Fixed
+// values: tuning today's duplicate rules must not change how old saves convert.
+const V6_EVO_COPIES = 3
+const V6_COPY_LEVELS = 10
+function fromCopies(mon: OwnedMon, copies: number): OwnedMon {
+  const next = addLevels(mon, Math.floor(copies) * V6_COPY_LEVELS)
+  const evolveAt = evolveLevel(byId(mon.sp))
+  if (copies < V6_EVO_COPIES || evolveAt === null || next.level >= evolveAt) return next
+  return addLevels(next, evolveAt - next.level)
+}
 
 // Saved documents are untrusted JSON: everything read from them is checked and normalized.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,14 +124,14 @@ export function normalizeProgress(saved: Saved, today: string): Progress {
   delete (p as Partial<GameState>).problems
   delete (p as Partial<GameState>).customTags
   if (!isAvatar(p.trainer.avatar)) delete p.trainer.avatar
-  // every instance has an `unlocked` form set (derived from a legacy `form`); duplicates banked
-  // toward evolving before v7 (`copies`) become the levels a duplicate gives now
+  // every instance has an `unlocked` form set (derived from a legacy `form`), and duplicates
+  // banked toward evolving before v7 (`copies`) become levels
   p.owned = (Array.isArray(p.owned) ? (p.owned as Saved[]) : []).map((raw) => {
     const { copies, ...o } = raw
     let unlocked = o.unlocked || {}
     if (o.form && !unlocked[o.form]) unlocked = { ...unlocked, [o.form]: true }
     const mon = { ...o, unlocked } as OwnedMon
-    return count(copies) ? addLevels(mon, Math.floor(count(copies)) * DUP_LEVELS) : mon
+    return count(copies) ? fromCopies(mon, count(copies)) : mon
   })
   p.team = (Array.isArray(p.team) ? p.team : [])
     .filter((iid) => p.owned.some((o) => o.iid === iid))
