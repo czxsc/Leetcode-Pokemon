@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { battle, type Boss, newCombat, payOut, TICK_MS, type Tier } from './meadow'
+import {
+  battle,
+  type Boss,
+  newCombat,
+  payOut,
+  TICK_MS,
+  TIER_ORDER,
+  type Tier,
+  tierOdds,
+} from './meadow'
 import { SPECIES } from './species'
 import * as Study from './study'
 import { ctx, game, seeded } from './test-helpers'
@@ -73,6 +82,11 @@ describe('battles', () => {
       expect(stronger.kills).toBeGreaterThan(start.kills * 1.5)
       expect(stronger.coins).toBeGreaterThan(start.coins)
     }
+  })
+
+  it('has spawn odds that add up to 1', () => {
+    const total = TIER_ORDER.reduce((n, t) => n + tierOdds(t), 0)
+    expect(total).toBeCloseTo(1, 9)
   })
 
   it('sends small wild Pokémon between bosses, quicker to beat and paying less', () => {

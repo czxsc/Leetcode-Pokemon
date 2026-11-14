@@ -143,15 +143,17 @@ const TIERS: Record<
   },
 }
 
-// Rarest first; whatever is left over is a normal boss.
+// Rarest first. The odds add up to 1; rounding leftovers go to a normal boss.
+export const TIER_ORDER: Tier[] = ['legend', 'elite', 'small', 'normal']
 function rollTier(rng: Rng): Tier {
   let r = rng()
-  for (const tier of ['legend', 'elite', 'small'] as const) {
+  for (const tier of TIER_ORDER) {
     r -= TIERS[tier].odds
     if (r < 0) return tier
   }
   return 'normal'
 }
+export const tierOdds = (tier: Tier) => TIERS[tier].odds
 
 // About a new player's team (six Lv5s). A team this strong fights each tier for the same time
 // whatever it is made of; past it, enemy HP grows only with the square root of team power, so
