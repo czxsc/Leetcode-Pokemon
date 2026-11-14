@@ -129,7 +129,7 @@ export function Focus() {
               }}
             />
           ))}
-          {/* BIG boss in the centre */}
+          {/* the wild Pokémon in the centre: bosses big and glowing, small ones plain */}
           {boss ? (
             <div
               className="boss-wrap"
@@ -140,17 +140,30 @@ export function Focus() {
             >
               <div
                 className={
-                  boss.tier === 'legend'
-                    ? 'boss-legend glow-pulse'
+                  'boss-sprite' +
+                  (boss.tier === 'legend'
+                    ? ' boss-legend glow-pulse'
                     : boss.tier === 'elite'
-                      ? 'boss-elite glow-pulse'
-                      : 'glow-pulse'
+                      ? ' boss-elite glow-pulse'
+                      : boss.tier === 'small'
+                        ? ''
+                        : ' glow-pulse')
                 }
               >
+                {/* fill: scaled up to the tier's size, not drawn at the sprite's own */}
                 <Creature
                   species={boss.sp}
                   shiny={boss.shiny}
-                  size={boss.tier === 'legend' ? 190 : boss.tier === 'elite' ? 168 : 148}
+                  fill={true}
+                  size={
+                    boss.tier === 'legend'
+                      ? 190
+                      : boss.tier === 'elite'
+                        ? 168
+                        : boss.tier === 'small'
+                          ? 84
+                          : 148
+                  }
                 />
               </div>
               {/* boss nameplate + HP */}
@@ -174,7 +187,7 @@ export function Focus() {
                     flexWrap: 'wrap',
                   }}
                 >
-                  {boss.tier !== 'normal' ? (
+                  {boss.tier === 'legend' || boss.tier === 'elite' ? (
                     <span
                       className="type-tag"
                       style={{
@@ -528,7 +541,7 @@ export function Focus() {
               padding: '8px 4px',
             }}
           >
-            <div className="lab">Bosses KO’d</div>
+            <div className="lab">Pokémon KO’d</div>
             <div className="val">{st.meadow.kills}</div>
           </div>
         </div>

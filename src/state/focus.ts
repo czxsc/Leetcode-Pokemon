@@ -101,12 +101,14 @@ function reward(r: BattleResult) {
     r.log.forEach((l) => pushLog(l.t, l.k))
     return
   }
-  // came back after a while: keep the highlights, summarize the rest
-  r.log.filter((l) => l.k === 'win' && l.tier !== 'normal').forEach((l) => pushLog(l.t, l.k))
+  // came back after a while: keep the elite and legendary wins, summarize the rest
+  r.log
+    .filter((l) => l.k === 'win' && (l.tier === 'elite' || l.tier === 'legend'))
+    .forEach((l) => pushLog(l.t, l.k))
   const took =
     r.studied < 60000 ? Math.round(r.studied / 1000) + 's' : Math.round(r.studied / 60000) + 'm'
   pushLog(
-    `While you studied (${took}): ${r.kills} boss${r.kills === 1 ? '' : 'es'} defeated` +
+    `While you studied (${took}): ${r.kills} Pokémon defeated` +
       (r.coins ? '  +' + r.coins + 'c' : '') +
       (r.shards ? '  +' + r.shards + 'sh' : ''),
     'away',

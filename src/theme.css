@@ -969,6 +969,8 @@ a.btn{ display:inline-flex; align-items:center; text-decoration:none; }
   .onb-trainer > :first-child{ align-self:center; }
   /* no room for the weather beside the running clock; the side panel still says what it does */
   .focus-signs:has(~ .focus-clock) .focus-weather{ display:none; }
+  /* a full-size boss would crowd the team circled around it */
+  .boss-sprite{ zoom:.6; }
   .onb-team-rest{ grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); width:100%; }
   .onb-actions{ flex-wrap:wrap; gap:8px; }
 }

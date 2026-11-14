@@ -338,7 +338,7 @@ export function SummaryCard({ s }) {
             marginBottom: 14,
           }}
         >
-          {stat('Bosses defeated', s.earned.kills)}
+          {stat('Pokémon defeated', s.earned.kills)}
           {stat('Team EXP', '+' + s.earned.exp)}
           {stat('Coins', '+' + s.earned.coins, <Coin size={13} />)}
           {stat('Shards', '+' + s.earned.shards, <Shard size={14} />)}

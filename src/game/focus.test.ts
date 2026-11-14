@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { battle, newCombat, payOut, TICK_MS } from './meadow'
+import { battle, type Boss, newCombat, payOut, TICK_MS, type Tier } from './meadow'
+import { SPECIES } from './species'
 import * as Study from './study'
 import { ctx, game, seeded } from './test-helpers'
+import type { GameState, OwnedMon } from './types'
 
 const T0 = 1_000_000
 const MIN = 60_000
@@ -56,6 +58,46 @@ describe('battles', () => {
     const r = battle(game(), newCombat(), TICK_MS / 2, ctx())
     expect(r.kills).toBe(0)
     expect(r.combat.wait).toBeGreaterThan(0)
+  })
+
+  it('defeats more, and earns more, with higher levels and rarer friends', () => {
+    const base = game()
+    const team = (change: (o: OwnedMon, i: number) => OwnedMon) =>
+      game({ owned: base.owned.map(change) })
+    const legendaries = SPECIES.filter((x) => x.rarity === 'legendary')
+    const hour = (s: GameState) => battle(s, newCombat(), 60 * MIN, ctx({ rng: seeded(5) }))
+    const start = hour(base)
+    const levelled = hour(team((o) => ({ ...o, level: 30 })))
+    const rarer = hour(team((o, i) => ({ ...o, sp: legendaries[i].id })))
+    for (const stronger of [levelled, rarer]) {
+      expect(stronger.kills).toBeGreaterThan(start.kills * 1.5)
+      expect(stronger.coins).toBeGreaterThan(start.coins)
+    }
+  })
+
+  it('sends small wild Pokémon between bosses, quicker to beat and paying less', () => {
+    // fight round by round, noting each enemy's HP and what beating it paid
+    const fights: { tier: Tier; rarity: string; maxHp: number; coins: number }[] = []
+    const s = game()
+    let combat = newCombat()
+    let current: Boss | null = null
+    const rng = seeded(3)
+    for (let t = 0; t < 4 * 60 * MIN; t += TICK_MS) {
+      const r = battle(s, combat, TICK_MS, ctx({ rng }))
+      if (r.kills && current) fights.push({ ...current, coins: r.coins })
+      combat = r.combat
+      current = combat.boss
+    }
+    const small = fights.filter((f) => f.tier === 'small')
+    const normal = fights.filter((f) => f.tier === 'normal')
+    expect(small.length).toBeGreaterThan(5)
+    expect(normal.length).toBeGreaterThan(5)
+    expect(small.every((f) => f.rarity === 'common')).toBe(true)
+    expect(Math.max(...small.map((f) => f.maxHp))).toBeLessThan(
+      Math.min(...normal.map((f) => f.maxHp)),
+    )
+    const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length
+    expect(avg(small.map((f) => f.coins))).toBeLessThan(avg(normal.map((f) => f.coins)))
   })
 
   it('pays out Coins, Shards, EXP and the day counters', () => {

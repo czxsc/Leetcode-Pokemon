@@ -1,8 +1,10 @@
 /* =====================================================================
    Focus battles. Time spent on LeetCode during a study session is
-   fought through in rounds: wild bosses appear, the team attacks every
-   TICK_MS of study time, and each defeat pays Coins, sometimes Shards,
-   and team EXP. Today's zone and weather come from the date.
+   fought through in rounds: wild Pokémon appear (quick small ones
+   between bigger bosses), the team attacks every TICK_MS of study time,
+   and each defeat pays Coins, sometimes Shards, and team EXP. A stronger
+   team wins faster, so it earns more per hour. Today's zone and weather
+   come from the date.
 ===================================================================== */
 import * as D from './derived'
 import { giveExp } from './rules'
@@ -93,8 +95,71 @@ export function daySeed(date: string): { zone: Zone; weather: Weather } {
   return { zone: ZONES[h % ZONES.length], weather: WEATHER[(h >> 3) % WEATHER.length] }
 }
 
-// ---- bosses and combat ----
-type Tier = 'normal' | 'elite' | 'legend'
+// ---- wild Pokémon and combat ----
+export type Tier = 'small' | 'normal' | 'elite' | 'legend'
+
+// Per tier: share of spawns, HP and pay (Coins and Shard chance) relative to a normal boss, team
+// EXP per defeat, which rarities appear, level as [lowest, spread] and shiny odds.
+// Legendaries are VERY infrequent; small ones are quick fights for a few Coins.
+const TIERS: Record<
+  Tier,
+  {
+    odds: number
+    hp: number
+    pay: number
+    exp: number
+    rarities: Rarity[]
+    level: [number, number]
+    shiny: number
+  }
+> = {
+  small: { odds: 0.3, hp: 0.2, pay: 0.5, exp: 1, rarities: ['common'], level: [2, 6], shiny: 0.02 },
+  normal: {
+    odds: 0.52,
+    hp: 1,
+    pay: 1,
+    exp: 1,
+    rarities: ['common', 'rare'],
+    level: [8, 16],
+    shiny: 0.02,
+  },
+  elite: {
+    odds: 0.155,
+    hp: 4,
+    pay: 5,
+    exp: 4,
+    rarities: ['rare', 'epic'],
+    level: [24, 18],
+    shiny: 0.02,
+  },
+  legend: {
+    odds: 0.025,
+    hp: 11,
+    pay: 20,
+    exp: 12,
+    rarities: ['legendary'],
+    level: [42, 22],
+    shiny: 0.06,
+  },
+}
+
+// Rarest first; whatever is left over is a normal boss.
+function rollTier(rng: Rng): Tier {
+  let r = rng()
+  for (const tier of ['legend', 'elite', 'small'] as const) {
+    r -= TIERS[tier].odds
+    if (r < 0) return tier
+  }
+  return 'normal'
+}
+
+// About a new player's team (six Lv5s). A team this strong fights each tier for the same time
+// whatever it is made of; past it, enemy HP grows only with the square root of team power, so
+// every level, rarer friend and solved problem shortens fights (4x the power, half the time).
+export const BASE_POWER = 40
+function toughness(power: number): number {
+  return power <= BASE_POWER ? power : Math.sqrt(BASE_POWER * power)
+}
 
 export interface Boss {
   sp: string
@@ -145,30 +210,21 @@ export interface BattleResult {
 
 export const newCombat = (): Combat => ({ boss: null, wait: FIRST_SPAWN_MS, carry: 0 })
 
-// legendaries are VERY infrequent
 function rollBoss(s: GameState, zone: Zone, rng: Rng, now: number): Boss {
-  const r = rng()
-  const tier: Tier = r < 0.025 ? 'legend' : r < 0.18 ? 'elite' : 'normal'
-  const inZone = (rarities: Rarity[]) =>
-    SPECIES.filter(
-      (x) => zone.types.some((t) => x.types.includes(t)) && rarities.includes(x.rarity),
-    )
-  let pool =
-    tier === 'legend'
-      ? SPECIES.filter((x) => x.rarity === 'legendary')
-      : tier === 'elite'
-        ? inZone(['rare', 'epic'])
-        : inZone(['common', 'rare'])
+  const tier = rollTier(rng)
+  const t = TIERS[tier]
+  // legendaries come from anywhere, the rest from today's zone
+  let pool = SPECIES.filter(
+    (x) =>
+      t.rarities.includes(x.rarity) &&
+      (tier === 'legend' || zone.types.some((type) => x.types.includes(type))),
+  )
   if (!pool.length) pool = SPECIES.filter((x) => x.rarity === 'common')
   if (!pool.length) pool = SPECIES
   const sp = pick(rng, pool)
-  const shiny = rng() < (tier === 'legend' ? 0.06 : 0.02)
-  const tp = Math.max(20, D.teamPower(s))
-  const hpMult = tier === 'legend' ? 11 : tier === 'elite' ? 4 : 1
-  const maxHp = Math.round(tp * (26 + rng() * 12) * hpMult)
-  const level =
-    (tier === 'legend' ? 42 : tier === 'elite' ? 24 : 8) +
-    Math.floor(rng() * (tier === 'legend' ? 22 : tier === 'elite' ? 18 : 16))
+  const shiny = rng() < t.shiny
+  const maxHp = Math.round(toughness(Math.max(20, D.teamPower(s))) * (26 + rng() * 12) * t.hp)
+  const level = t.level[0] + Math.floor(rng() * t.level[1])
   return {
     sp: sp.id,
     name: sp.name,
@@ -213,12 +269,12 @@ function strike(s: GameState, weather: Weather, rng: Rng, now: number) {
 
 function defeat(boss: Boss, zone: Zone, r: BattleResult, rng: Rng) {
   const rMult = RARITY[boss.rarity].mult // 1 / 2 / 3 / 5
-  const tierMult = boss.tier === 'legend' ? 20 : boss.tier === 'elite' ? 5 : 1
-  const lvlFactor = 0.5 + boss.level / 40 // ~0.7 .. ~2.0
+  const t = TIERS[boss.tier]
+  const lvlFactor = 0.5 + boss.level / 40 // ~0.55 .. ~2.1
   const baseCoins = zone.coinFloor + Math.floor(rng() * (zone.coinCeil - zone.coinFloor + 1))
   const variance = 0.8 + rng() * 0.5
-  const coins = Math.round(baseCoins * 0.35 * tierMult * lvlFactor * variance)
-  const shardP = Math.min(0.95, zone.shardChance * tierMult)
+  const coins = Math.round(baseCoins * 0.35 * t.pay * lvlFactor * variance)
+  const shardP = Math.min(0.95, zone.shardChance * t.pay)
   const shards =
     rng() < shardP
       ? Math.round((10 + rng() * 30) * (rMult / 2) * (boss.tier === 'legend' ? 3 : 1))
@@ -227,7 +283,7 @@ function defeat(boss: Boss, zone: Zone, r: BattleResult, rng: Rng) {
   r.coins += coins
   r.shards += shards
   r.kills++
-  r.exp += boss.tier === 'legend' ? 12 : boss.tier === 'elite' ? 4 : 1
+  r.exp += t.exp
   r.log.push({
     k: 'win',
     tier: boss.tier,
@@ -268,10 +324,14 @@ export function battle(
       boss = rollBoss(s, zone, ctx.rng, ctx.now)
       const tag =
         boss.tier === 'legend' ? '⭐ LEGENDARY ' : boss.tier === 'elite' ? '✨ ELITE ' : ''
+      const shiny = boss.shiny ? 'shiny ' : ''
       r.log.push({
         k: 'spawn',
         tier: boss.tier,
-        t: `A ${tag}wild ${boss.shiny ? 'shiny ' : ''}${boss.name} appeared!`,
+        t:
+          boss.tier === 'small'
+            ? `A wild ${shiny}${boss.name} wandered in!`
+            : `A ${tag}wild ${shiny}${boss.name} appeared!`,
       })
       continue
     }
